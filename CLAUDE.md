@@ -2,33 +2,34 @@
 
 Project Kaizen is an MCP server that elevates transient AI interactions into a persistent foundation of organizational knowledge.
 
-**Repository**: project-kaizen  
-**Type**: MCP Server  
-**Purpose**: Enable AI agents to maintain persistent memory and learn continuously from interactions
-
 ## Git Commit Messages
 
 Follow semantic versioning (semver) format for all commits:
 
 ```
 <type>: <description>
-
-[optional body with bullet points]
+[optional bullet points]
 ```
 
 **Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 **Rules**:
 - Use present tense ("add feature" not "added feature")
-- First line should be concise summary
-- Use bullet points in body when listing multiple changes
-- No other format variations
+- Maximum 5 lines total per commit message
+- No empty lines between lines
+- Bullet points allowed for listing changes
+- No Claude signatures or attribution messages
+- Be concise and descriptive
 
 **Example**:
 ```
 feat: add knowledge persistence to Neo4j
-
 - Implement node creation for knowledge entries
 - Add relationship mapping between concepts
 - Configure database connection pooling
 ```
+
+## Code Formatting Rules
+
+- All files must end with a newline character
+- Ensure proper file termination when creating or editing files

@@ -64,6 +64,11 @@ The system uses a four-tier hierarchy to organize knowledge:
 - **Group Knowledge** - Shared within related project groups (e.g., payment services)
 - **Project Knowledge** - Specific to individual repositories
 
+**Key Concepts:**
+- **Scope**: A named container at any tier (e.g., "webapp" at PRODUCT tier, "checkout-api" at PROJECT tier)
+- **Entry**: Individual knowledge item stored within a scope
+- **Inheritance**: Entries from parent scopes automatically apply to child scopes unless overridden
+
 This structure ensures the AI agent always has the right context without information overload. See [Multi-Project Products](./multi-project-products.md) for detailed architecture.
 
 ### The Transformation

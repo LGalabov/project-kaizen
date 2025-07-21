@@ -2,6 +2,8 @@
 
 *MCP server that elevates transient AI interactions into a persistent foundation of organizational knowledge*
 
+**Kaizen** (改善) - Japanese for "continuous improvement" - captures how AI agents learn incrementally with each interaction, transforming from tools into knowledgeable team members.
+
 ## Project Overview
 
 Project Kaizen enables AI agents to maintain persistent knowledge across sessions, transforming them from stateless assistants into learning team members with deep project understanding.
