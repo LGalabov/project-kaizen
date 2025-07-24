@@ -33,3 +33,46 @@ feat: add knowledge persistence to Neo4j
 
 - All files must end with a newline character
 - Ensure proper file termination when creating or editing files
+
+## Complex Task Planning Protocol
+
+For complex, multi-step tasks that involve significant changes or architectural decisions:
+
+1. **Initial Investigation Phase**
+   - Use TodoWrite tool to create detailed task breakdown
+   - Research existing codebase and documentation thoroughly
+   - Identify all potential impacts, dependencies, and edge cases
+
+2. **Planning Communication Phase**
+   - Present findings and proposed approach to user
+   - Create detailed plan with clear steps and rationale
+   - Request user feedback, context, and approval
+   - Iterate on plan based on user input until approved
+
+3. **Implementation Phase**
+   - Only proceed with invasive actions after explicit user approval
+   - Execute approved plan systematically using todo tracking
+   - Update todos in real-time as work progresses
+   - Communicate any deviations or issues immediately
+
+**Complex Task Indicators:**
+- Tasks affecting multiple files or system components
+- Architectural changes or new feature implementations
+- Specification creation or protocol design
+- Tasks with potential for breaking changes
+- Tasks requiring domain knowledge or business decisions
+
+**Communication Requirements:**
+- Always explain your reasoning and approach
+- Highlight risks, assumptions, and trade-offs
+- Ask clarifying questions when requirements are ambiguous
+- Seek approval before making significant changes
+- Keep user informed of progress and blockers
+
+## Communication Style
+
+- Keep terminal outputs concise and conversational
+- Break large changes into small, understandable pieces
+- Use output tokens efficiently - avoid verbose explanations
+- Present information in digestible chunks
+- Focus on what matters most to the user's immediate needs
