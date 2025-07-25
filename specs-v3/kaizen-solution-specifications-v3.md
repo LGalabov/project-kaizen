@@ -422,3 +422,196 @@ The following workflow details need clarification:
 - **Namespace_Scope Assignment**: Logic for how AI determines whether knowledge should be "global" vs current namespace:scope from CLAUDE.md
 - **Collision Detection Triggers**: When and how AI recognizes conflicting knowledge across scope hierarchy to prompt user resolution
 - **Progressive Setup Flow**: Step-by-step user experience for initializing new projects with namespace and scope creation
+
+## Task Sizing Concept for Future Implementation
+
+### **T-Shirt Size Knowledge Filtering**
+
+**Concept**: Knowledge can be tagged with task complexity levels (similar to t-shirt sizing) to ensure appropriate guidance is provided based on task scope.
+
+**Task Size Hierarchy** (each size includes all smaller sizes):
+- **XS** (Extra Small): Quick fixes, simple changes, single-line modifications
+- **S** (Small): Feature tweaks, minor enhancements, simple integrations  
+- **M** (Medium): Full feature implementation, moderate refactoring, multi-component changes
+- **L** (Large): Major feature development, architecture changes, cross-system integration
+- **XL** (Extra Large): Complete system redesign, platform migration, enterprise-wide changes
+
+### **Knowledge Storage with Task Sizing**
+
+**Enhanced save_knowledge with task_size:**
+```json
+{
+  "content": "Always conduct security review before deploying authentication changes",
+  "tag_ids": ["H9L4X7RM85", "A9X5M2K7L4", "D8K2P5QN67"],
+  "namespace_scope": "acme:petshop-storefront",
+  "task_size": "M"
+}
+```
+
+**Size-Specific Knowledge Examples:**
+```json
+// XS - Quick fix guidance
+{
+  "content": "Fix typos immediately, no review needed for documentation",
+  "task_size": "XS"
+}
+
+// L - Major feature guidance  
+{
+  "content": "Large features require: architecture review, security assessment, performance testing, and staged rollout plan",
+  "task_size": "L"
+}
+```
+
+### **Query Filtering by Task Size**
+
+**Enhanced get_task_context with task sizing:**
+```json
+{
+  "include_tags": ["authentication", "security"],
+  "namespace": "acme", 
+  "scope": "petshop-storefront",
+  "task_size": "M",
+  "limit": 10
+}
+```
+
+**Filtering Logic:**
+- **AI provides task_size**: Returns knowledge for that size AND all smaller sizes
+  - `task_size: "M"` → Returns XS, S, M knowledge (excludes L, XL)
+  - `task_size: "L"` → Returns XS, S, M, L knowledge (excludes XL)
+- **AI provides no task_size**: Returns ALL knowledge regardless of size
+- **Knowledge has no task_size**: Always included in results (backwards compatibility)
+
+### **Real-World Usage Scenarios**
+
+**Small Task Example:**
+```json
+// AI Query
+{"task_size": "S", "include_tags": ["bug-fix", "frontend"]}
+
+// Returns
+{
+  "acme:petshop-storefront": [
+    {"content": "For small UI fixes, test in Chrome and Firefox only", "task_size": "S"},
+    {"content": "Quick CSS changes don't require designer review", "task_size": "XS"}
+  ]
+  // Excludes: "Major UI changes require accessibility audit" (task_size: "L")
+}
+```
+
+**Large Task Example:**
+```json
+// AI Query  
+{"task_size": "L", "include_tags": ["authentication", "security"]}
+
+// Returns comprehensive guidance
+{
+  "acme:petshop-storefront": [
+    {"content": "Fix auth typos immediately", "task_size": "XS"},
+    {"content": "Minor auth UI tweaks need basic testing", "task_size": "S"},
+    {"content": "Auth feature changes require security review", "task_size": "M"},
+    {"content": "Major auth overhauls need penetration testing and compliance review", "task_size": "L"}
+  ]
+}
+```
+
+### **Benefits of Task Sizing**
+
+✅ **Prevents Over-Engineering**: Small tasks don't get burdened with enterprise-level processes
+✅ **Ensures Proper Rigor**: Large tasks get comprehensive guidance and oversight requirements
+✅ **Contextual Appropriateness**: AI receives guidance proportional to task complexity
+✅ **Backwards Compatible**: Existing knowledge without sizes still works
+✅ **Flexible Filtering**: AI can omit task_size to get all knowledge when uncertain
+
+### **Implementation Considerations**
+
+**Size Determination Guidelines:**
+- **Task Duration**: XS (minutes), S (hours), M (days), L (weeks), XL (months)
+- **Team Impact**: XS (self), S (pair), M (team), L (multiple teams), XL (organization)
+- **Risk Level**: XS (cosmetic), S (minor), M (moderate), L (high), XL (critical)
+- **Complexity**: Lines of code, files affected, systems involved, dependencies
+
+**Future Enhancement**: AI could automatically suggest task_size based on task description analysis, with user confirmation for accuracy.
+
+## Database Technology Decision
+
+### **Selected: PostgreSQL + pgvector Extension**
+
+After comprehensive analysis of database options (graph databases, document databases, relational databases, vector databases, and hybrid architectures), we have selected **PostgreSQL with pgvector extension** as the optimal foundation for the Kaizen knowledge system.
+
+### **Why PostgreSQL + pgvector Wins**
+
+**Technical Alignment:**
+- **Single System Simplicity**: Aligns with Kaizen's "5 endpoints instead of 150" philosophy
+- **Native Array Support**: Perfect for tag names arrays and tag_ids references
+- **JSONB Flexibility**: Handles evolving metaknowledge and flexible schemas
+- **Recursive CTEs**: Elegant solution for namespace-scope graph traversal
+- **pgvector Semantic Search**: Adds vector similarity without architectural complexity
+- **ACID Guarantees**: Critical for collision resolution workflow consistency
+
+**Implementation Approach:**
+```sql
+-- Core tables supporting all Kaizen requirements
+CREATE TABLE tags (
+    id VARCHAR(10) PRIMARY KEY,  -- Base58 short ID
+    names TEXT[] NOT NULL,       -- Array for altname variations
+    description TEXT,
+    vector_embedding vector(384) -- Semantic search capability
+);
+
+CREATE TABLE knowledge (
+    id VARCHAR(10) PRIMARY KEY,
+    content TEXT NOT NULL,
+    tag_ids VARCHAR(10)[] NOT NULL,    -- References to tags
+    namespace_scope TEXT NOT NULL,     -- "namespace:scope" or "global"
+    task_size VARCHAR(2),              -- XS, S, M, L, XL
+    metaknowledge JSONB DEFAULT '{}',  -- Flexible metadata
+    content_vector vector(384),        -- Content semantic search
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Graph traversal for scope inheritance
+WITH RECURSIVE scope_hierarchy AS (
+    SELECT id, namespace_id, 0 as level 
+    FROM scopes WHERE namespace_id = $1 AND name = $2
+    UNION ALL
+    SELECT s.id, s.namespace_id, sh.level + 1
+    FROM scopes s
+    JOIN scope_relations sr ON s.id = sr.parent_scope_id
+    JOIN scope_hierarchy sh ON sr.child_scope_id = sh.id
+    WHERE sh.level < 10
+)
+SELECT * FROM scope_hierarchy;
+```
+
+**Performance Characteristics:**
+- **Tag Resolution**: <1ms with GIN array indexes
+- **Scope Inheritance**: <3ms with recursive CTE optimization
+- **Knowledge Queries**: <5ms for complex multi-dimensional filtering
+- **Semantic Search**: <10ms with IVFFlat vector indexes
+- **Collision Resolution**: Real-time with standard relational joins
+
+**Operational Benefits:**
+- **Single Database**: Simplified backup, monitoring, and maintenance
+- **Mature Ecosystem**: Extensive PostgreSQL tooling and expertise
+- **Cost Effective**: No multiple database licenses or specialized infrastructure
+- **Developer Friendly**: Standard SQL with JSON extensions
+- **Proven Scalability**: Read replicas and partitioning for growth
+
+### **Alternative Considerations**
+
+**Neo4j (Graph Database)**: Excellent conceptual match for scope relationships but adds operational complexity and Cypher learning curve.
+
+**MongoDB (Document Database)**: Strong for flexible schemas and arrays but complex graph queries via aggregation pipeline.
+
+**Vector-Only Solutions**: Would require hybrid architecture with traditional database, increasing complexity without clear benefits over integrated pgvector approach.
+
+### **Implementation Phases**
+
+**Phase 1**: Core PostgreSQL schema with JSONB flexibility
+**Phase 2**: pgvector extension for semantic search capabilities  
+**Phase 3**: Performance optimization with advanced indexing
+**Phase 4**: Scaling with read replicas and connection pooling
+
+This database foundation provides enterprise-grade capabilities through a single, well-understood system that maintains Kaizen's emphasis on simplicity while delivering all required functionality for the namespace-scope knowledge architecture.
