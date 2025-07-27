@@ -58,18 +58,17 @@ This controlled approach ensures knowledge quality while keeping the system simp
 
 ### Knowledge Architecture
 
-The system uses a four-tier hierarchy to organize knowledge:
-- **General Knowledge** - Universal best practices
-- **Product Knowledge** - Shared across all projects in a product
-- **Group Knowledge** - Shared within related project groups (e.g., payment services)
-- **Project Knowledge** - Specific to individual repositories
+The system uses namespace and scope organization:
+- **Namespaces** - Organizational boundaries (e.g., "acme", "payments")  
+- **Scopes** - Teams/projects within namespaces (e.g., "acme:frontend-team")
+- **Inheritance** - Knowledge flows from specific scopes to broader scopes to global
 
 **Key Concepts:**
-- **Scope**: A named container at any tier (e.g., "webapp" at PRODUCT tier, "checkout-api" at PROJECT tier)
-- **Entry**: Individual knowledge item stored within a scope
-- **Inheritance**: Entries from parent scopes automatically apply to child scopes unless overridden
+- **Namespace:Scope** - Complete identifiers for knowledge containers
+- **Knowledge Entries** - Individual items with content and searchable context
+- **Hierarchy** - Current scope → parent scopes → namespace default → global default
 
-This structure ensures the AI agent always has the right context without information overload. See [Multi-Project Products](./multi-project-products.md) for detailed architecture.
+This structure ensures the AI agent always has the right context without information overload.
 
 ### The Transformation
 
@@ -112,13 +111,13 @@ Result: Accelerating productivity
 - Error occurs: Rate limiting not implemented
 - the AI agent: "Should I remember to always implement rate limiting on auth endpoints?"
 - Architect: "Yes, use 5 attempts per minute"
-- the AI agent: Stores this rule
+- the AI agent: Stores this knowledge with searchable context
 
 **Week 1, Wednesday - Frontend Development**
 - Architect: "Create the login form"
 - the AI agent: Switches context, knows React is used, implements form
 - Architect: "Actually, always use our custom FormField component for consistency"
-- the AI agent: Stores this instruction
+- the AI agent: Stores this instruction with component context
 
 **Week 2, Monday - Returning to Backend**
 - Architect: "Add password reset functionality"
@@ -181,6 +180,7 @@ Month 2:  + Edge cases → 95% task success
 - Architect: "The handler must be idempotent"
 - the AI agent: "Should I remember that all webhook handlers must implement idempotency?"
 - Architect: "Yes, using the event ID as idempotency key"
+- the AI agent: Stores this pattern with webhook and idempotency context
 
 **Future Implementations**
 - Two weeks later: "Add shipping notification webhook"
@@ -201,7 +201,7 @@ Month 2:  + Edge cases → 95% task success
   - "The staging environment has limited memory, keep pods under 512MB"
   - "Never deploy on Fridays - we learned this the hard way"
   - "The payment service must be deployed before the order service"
-- the AI agent: Stores all institutional knowledge
+- the AI agent: Stores all deployment knowledge with operational context
 
 **After Developer Leaves**
 - New team member: "How do we deploy to staging?"
@@ -270,8 +270,13 @@ Month 2:  + Edge cases → 95% task success
 
 ### Context Retrieval
 - When starting any task, the AI agent searches for relevant context
-- Retrieves project-wide rules first, then domain-specific knowledge
+- Retrieves scope-specific knowledge through hierarchy inheritance
 - Applies all relevant instructions without being reminded
+
+### Multi-Query Intelligence
+- For complex tasks, AI decomposes into multiple focused searches
+- Combines results intelligently across different knowledge areas
+- Adapts search complexity based on task size (quick fixes vs large implementations)
 
 ### Failure Handling
 - When an error occurs, the AI agent analyzes root cause
@@ -281,15 +286,15 @@ Month 2:  + Edge cases → 95% task success
 
 ### Knowledge Sessions
 - User can initiate teaching mode at any time
-- the AI agent actively listens and stores information
+- the AI agent actively stores information using structured endpoints
 - Confirms understanding and asks clarifying questions
 - Information available immediately in current session and all future sessions
 
 ### Conflict Resolution
-- Simple last-write-wins approach for updates
-- Four-tier hierarchy precedence: Project > Group > Product > General
-- No complex versioning needed - designed for trusted teams
-- Knowledge self-corrects through usage and failure feedback
+- When conflicting information exists, AI prompts user to resolve
+- User chooses which knowledge remains active, which gets suppressed
+- Suppressed knowledge is preserved but hidden from future searches
+- Maintains audit trail of decisions
 
 ### Progress Tracking
 - the AI agent maintains awareness of project state
@@ -368,9 +373,9 @@ Month 2:  + Edge cases → 95% task success
 ### Knowledge Updates
 When information needs updating:
 1. User provides new instruction or correction
-2. New knowledge overwrites previous version (last-write-wins)
-3. System continues with updated knowledge
-4. Self-corrects naturally through usage
+2. AI detects conflicts and prompts for resolution
+3. User chooses active knowledge, conflicting entries get suppressed
+4. System continues with resolved knowledge
 
 ### Project Deletion
 When a project ends:

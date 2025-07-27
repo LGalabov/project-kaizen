@@ -10,27 +10,31 @@ Project Kaizen enables AI agents to maintain persistent knowledge across session
 
 ## Documentation
 
-### 📋 [Product Specification](./project-kaizen-product-specification.md)
+### 📋 [Product Specification](./docs/product-specification.md)
 The complete product vision, use cases, and expected behaviors. **Start here** to understand what we're building and why.
 
-### 📖 [Behavior Examples](./behavior-examples.md)
-Detailed examples of how the AI agent should behave with the memory system in various scenarios.
+### 📖 [Behavior Examples](./docs/behavior-examples.md)
+Detailed examples of how the AI agent should behave with the MCP knowledge system in various scenarios.
 
-### 🏗️ [Multi-Project Products](./multi-project-products.md)
-How the system handles products with multiple repositories and the four-tier knowledge architecture.
+### 🔧 [MCP Protocol & Actions](./docs/mcp-protocol+actions.md)
+Complete technical specification of all MCP endpoints, request/response schemas, and API behaviors.
+
+### 🔍 [Knowledge Discovery System](./docs/knowledge-discovery-system.md)
+Technical design for PostgreSQL-based search, multi-query decomposition, and context field strategies.
 
 ## Core Concept
 
 Without this system, every AI agent session starts from zero. With it, the AI agent:
-- Remembers project context and decisions
-- Learns from failures to prevent repetition
-- Accumulates team knowledge over time
+- Remembers project context through namespace:scope hierarchy
+- Learns from failures using collision resolution
+- Searches knowledge using multi-query decomposition
 - Becomes more effective with each interaction
 
-Knowledge enters through three simple triggers:
-1. User teaching sessions (can include research)
-2. Voluntary additions after successful tasks
-3. Approved proposals after failures
+Knowledge is stored through structured MCP endpoints with:
+- Explicit write_knowledge calls with content and searchable context
+- Multi-query retrieval for complex tasks
+- Task size filtering (XS to XL complexity)
+- PostgreSQL full-text search with relevance ranking
 
 Designed for small trusted teams and individual developers.
 
@@ -42,8 +46,4 @@ Designed for small trusted teams and individual developers.
 
 ## Project Status
 
-This is a product specification and vision document. Implementation details will follow after the product vision is validated and refined.
-
----
-
-*"Transform your AI agent from a powerful tool into an irreplaceable team member."*
+This project includes complete product specification and technical implementation design. The MCP server architecture is defined with PostgreSQL backend, ready for development.
