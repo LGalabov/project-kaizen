@@ -1,6 +1,6 @@
 # MCP Protocol and Actions
 
-## Definitions & Paradigms
+## Core Principles
 
 ### Knowledge Philosophy
 - Hard facts only - no confidence scores needed
@@ -16,12 +16,80 @@
 - Context fields within knowledge entries enable precise searchability
 - Multi-tenant isolation prevents knowledge pollution
 
+### Search Intelligence Design
+
+#### Entity Structure
+- **Three entities only:** namespace, scope, knowledge
+- **No separate keyword/tag entities** - complexity without value
+- **Lean architecture** - engineering elegance over feature bloat
+
+#### AI Query Decomposition
+**Complex tasks require multiple targeted queries, not artificial combinations.**
+
+Example: "commit and push all changes"
+```json
+{
+  "queries": [
+    "git commit changes staged messages",
+    "git push remote branch safety"
+  ]
+}
+```
+
+Returns separate, focused knowledge entries:
+- Git commit conventions and practices
+- Git push safety and workflows
+
+**AI combines results intelligently** - system provides building blocks, not pre-built combinations.
+
+#### Multi-Query Support
+```json
+{
+  "queries": [
+    "google oauth frontend integration", 
+    "oauth backend validation security",
+    "sso login ui components"
+  ],
+  "scope": "acme:petshop-storefront",
+  "task_size": "M"
+}
+```
+
+Enables complex task support through parallel focused searches.
+
+#### Task Size Filtering
+AI can specify task complexity to filter relevant knowledge:
+- **XS** - quick fixes
+- **S** - small features  
+- **M** - medium projects
+- **L** - large implementations
+- **XL** - architectural changes
+
+Knowledge entries should be tagged with appropriate complexity levels for effective filtering.
+
+#### Context Field Strategy
+
+**Insert-Time Intelligence**: Knowledge authors must anticipate search patterns and term variations.
+
+Example Context Field:
+```
+"nodejs node.js express javascript jwt authentication middleware token validation security api"
+```
+
+Covers:
+- **Term variations:** "nodejs" vs "node.js"
+- **Technology stack:** "express", "javascript" 
+- **Core concepts:** "jwt", "authentication", "middleware"
+- **Use cases:** "token validation", "security", "api"
+
+**Domain Expertise Required**: Authors need technical depth to anticipate search terms and understand how concepts interconnect.
+
 ### AI Integration
 - Context field handles all searchability - no separate tag entities needed
 - Output optimized for execution, not explanation
 - Zero-friction experience - AI uses natural language queries
 - Context from CLAUDE.md drives automatic scoping
-- Task size filtering: XS (quick fixes), S (small features), M (medium projects), L (large implementations), XL (architectural changes)
+- Task size filtering matches knowledge complexity levels
 
 ## Business-Level Protocol
 
@@ -47,7 +115,20 @@
 - Knowledge inheritance: current scope → all parents → global:default
 - Full functionality enabled
 
-## Endpoints
+## Implementation Requirements
+
+### Single Container
+- PostgreSQL with full-text search extensions
+- Custom functions for scope hierarchy resolution
+- Materialized views for performance optimization
+
+### MCP Server
+- Standard MCP implementation
+- Query parsing and decomposition logic
+- Multi-query batch processing support
+- Relevance scoring and result organization
+
+## MCP Action Specifications
 
 ## Namespace Management
 

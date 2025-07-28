@@ -1,49 +1,46 @@
 # Project Kaizen
 
-*MCP server that elevates transient AI interactions into a persistent foundation of organizational knowledge*
+> Transform AI assistants from forgetful tools into persistent, learning team members
 
-**Kaizen** (改善) - Japanese for "continuous improvement" - captures how AI agents learn incrementally with each interaction, transforming from tools into knowledgeable team members.
+**Kaizen** (改善) - Japanese for "continuous improvement" - captures how AI learns incrementally with each interaction, evolving from a stateless assistant into a knowledgeable collaborator that understands your projects as deeply as you do.
 
-## Project Overview
+## What It Does
 
-Project Kaizen enables AI agents to maintain persistent knowledge across sessions, transforming them from stateless assistants into learning team members with deep project understanding.
+Project Kaizen is an MCP server that gives AI persistent memory across sessions. Instead of re-explaining your project setup, coding standards, and lessons learned every time, AI remembers everything and gets smarter with each interaction.
+
+**Before Kaizen:**
+```
+Day 1: "Here's our project setup, coding standards, and conventions..."
+Day 2: "Here's our project setup, coding standards, and conventions..."
+Day 3: AI makes the same mistake from last week
+```
+
+**With Kaizen:**
+```
+Day 1: Explain once, AI stores everything
+Day 2: AI remembers, starts productive work immediately  
+Day 3: AI prevents previous mistakes, suggests improvements
+```
+
+## Key Features
+
+- **🧠 Persistent Memory**: AI retains project context, decisions, and lessons across sessions
+- **📚 Organizational Knowledge**: Team knowledge survives member changes
+- **🔍 Smart Search**: Multi-query decomposition with full-text search capabilities
+- **🏗️ Scope Hierarchy**: Organized knowledge inheritance from global to project-specific
+- **⚡ Learning from Failures**: Errors become permanent guardrails with user approval
+- **🎯 Task-Aware**: Context filtering by complexity (XS to XL tasks)
 
 ## Documentation
 
-### 📋 [Product Specification](./docs/product-specification.md)
-The complete product vision, use cases, and expected behaviors. **Start here** to understand what we're building and why.
+- **📋 [Product Specification](./docs/product-specification.md)** - Vision, use cases, and business value
+- **📖 [Behavior Examples](./docs/behavior-examples.md)** - Real-world usage scenarios and workflows  
+- **🔧 [MCP Protocol & Actions](./docs/mcp-protocol+actions.md)** - Complete technical specification
 
-### 📖 [Behavior Examples](./docs/behavior-examples.md)
-Detailed examples of how the AI agent should behave with the MCP knowledge system in various scenarios.
+## Who It's For
 
-### 🔧 [MCP Protocol & Actions](./docs/mcp-protocol+actions.md)
-Complete technical specification of all MCP endpoints, request/response schemas, and API behaviors.
+Designed for small trusted teams (2-10 people) and individual developers who want AI that gets smarter over time.
 
-### 🔍 [Knowledge Discovery System](./docs/knowledge-discovery-system.md)
-Technical design for PostgreSQL-based search, multi-query decomposition, and context field strategies.
+## Vision
 
-## Core Concept
-
-Without this system, every AI agent session starts from zero. With it, the AI agent:
-- Remembers project context through namespace:scope hierarchy
-- Learns from failures using collision resolution
-- Searches knowledge using multi-query decomposition
-- Becomes more effective with each interaction
-
-Knowledge is stored through structured MCP endpoints with:
-- Explicit write_knowledge calls with content and searchable context
-- Multi-query retrieval for complex tasks
-- Task size filtering (XS to XL complexity)
-- PostgreSQL full-text search with relevance ranking
-
-Designed for small trusted teams and individual developers.
-
-## Value Proposition
-
-- **For Developers**: No more re-explaining context every session
-- **For Teams**: Institutional knowledge preserved and accessible
-- **For Projects**: Faster delivery with fewer repeated mistakes
-
-## Project Status
-
-This project includes complete product specification and technical implementation design. The MCP server architecture is defined with PostgreSQL backend, ready for development.
+Success is when developers forget AI wasn't always on the team - it knows so much project context it feels like a senior team member who's been there from day one.
