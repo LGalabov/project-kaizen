@@ -3,6 +3,7 @@
 
 CREATE EXTENSION IF NOT EXISTS "btree_gin";
 CREATE TYPE task_size_enum AS ENUM ('XS', 'S', 'M', 'L', 'XL');
+CREATE TYPE config_type_enum AS ENUM ('text', 'integer', 'float', 'boolean');
 
 -- =============================================================================
 -- CORE SCHEMA
@@ -84,6 +85,16 @@ CREATE TABLE knowledge_collisions (
 CREATE INDEX idx_collisions_active ON knowledge_collisions (active_knowledge_id);
 CREATE INDEX idx_collisions_suppressed ON knowledge_collisions USING GIN (suppressed_knowledge_ids);
 
+-- Global runtime configuration
+CREATE TABLE config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    value_type config_type_enum NOT NULL,
+    description TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- =============================================================================
 -- MATERIALIZED VIEWS
 -- =============================================================================
@@ -129,6 +140,9 @@ CREATE OR REPLACE FUNCTION get_task_context(
 ) AS $$
 DECLARE
     ancestors_array BIGINT[];
+    relevance_threshold DOUBLE PRECISION;
+    search_language TEXT;
+    max_results INTEGER;
 BEGIN
     SELECT sh.ancestors INTO ancestors_array
     FROM scopes s
@@ -140,11 +154,16 @@ BEGIN
         RAISE EXCEPTION 'Scope not found: %', target_scope;
     END IF;
     
+    -- Load configuration values
+    relevance_threshold := get_config_float('search.relevance_threshold');
+    search_language := get_config_text('search.language');
+    max_results := get_config_integer('search.max_results');
+    
     RETURN QUERY
     WITH parsed_queries AS (
         SELECT 
             query_term,
-            websearch_to_tsquery('english', query_term) as parsed_query
+            websearch_to_tsquery(search_language, query_term) as parsed_query
         FROM UNNEST(query_terms) as query_term
     ),
     ranked_results AS (
@@ -161,7 +180,7 @@ BEGIN
             AND (filter_task_size IS NULL OR k.task_size IS NULL OR k.task_size >= filter_task_size)
     ),
     filtered_results AS (
-        SELECT * FROM ranked_results WHERE rank >= 0.1
+        SELECT * FROM ranked_results WHERE rank >= relevance_threshold
     )
     SELECT 
         fr.qualified_scope_name,
@@ -169,7 +188,76 @@ BEGIN
         fr.content
     FROM filtered_results fr
     GROUP BY fr.qualified_scope_name, fr.id, fr.content
-    ORDER BY MAX(fr.rank) DESC;
+    ORDER BY MAX(fr.rank) DESC
+    LIMIT max_results;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =============================================================================
+-- CONFIGURATION FUNCTIONS
+-- =============================================================================
+
+-- Internal helper function to get config with type validation
+CREATE OR REPLACE FUNCTION get_config_internal(config_key TEXT, expected_type config_type_enum DEFAULT NULL)
+RETURNS RECORD AS $$
+DECLARE
+    config_record RECORD;
+BEGIN
+    SELECT value, value_type INTO config_record FROM config WHERE key = config_key;
+    IF config_record.value IS NULL THEN
+        RAISE EXCEPTION 'Configuration key not found: %', config_key;
+    END IF;
+    
+    -- Type validation if expected_type is specified
+    IF expected_type IS NOT NULL AND config_record.value_type != expected_type THEN
+        RAISE EXCEPTION 'Configuration key % is type % but % was requested', 
+                       config_key, config_record.value_type, expected_type;
+    END IF;
+    
+    RETURN config_record;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Public accessor functions
+CREATE OR REPLACE FUNCTION get_config_text(config_key TEXT) 
+RETURNS TEXT AS $$
+BEGIN
+    RETURN (get_config_internal(config_key)).value;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION get_config_integer(config_key TEXT) 
+RETURNS INTEGER AS $$
+BEGIN
+    RETURN (get_config_internal(config_key, 'integer'::config_type_enum)).value::INTEGER;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION get_config_float(config_key TEXT) 
+RETURNS DOUBLE PRECISION AS $$
+BEGIN
+    RETURN (get_config_internal(config_key, 'float'::config_type_enum)).value::DOUBLE PRECISION;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION get_config_boolean(config_key TEXT) 
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN (get_config_internal(config_key, 'boolean'::config_type_enum)).value::BOOLEAN;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Update function
+CREATE OR REPLACE FUNCTION update_config(config_key TEXT, config_value TEXT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE config 
+    SET value = config_value, updated_at = NOW()
+    WHERE key = config_key;
+    
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Configuration key not found: %. Cannot insert new keys.', config_key;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -335,6 +423,53 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Configuration validation and protection
+CREATE OR REPLACE FUNCTION validate_config_type() RETURNS TRIGGER AS $$
+BEGIN
+    BEGIN
+        CASE NEW.value_type
+            WHEN 'text' THEN
+                NULL;
+            WHEN 'integer' THEN
+                PERFORM NEW.value::INTEGER;
+            WHEN 'float' THEN
+                PERFORM NEW.value::DOUBLE PRECISION;
+            WHEN 'boolean' THEN
+                PERFORM NEW.value::BOOLEAN;
+        END CASE;
+    EXCEPTION
+        WHEN invalid_text_representation THEN
+            RAISE EXCEPTION 'Value "%" cannot be parsed as type %', NEW.value, NEW.value_type;
+        WHEN numeric_value_out_of_range THEN
+            RAISE EXCEPTION 'Value "%" is out of range for type %', NEW.value, NEW.value_type;
+    END;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION prevent_config_changes() RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        RAISE EXCEPTION 'Cannot insert new configuration keys. Only updates allowed.';
+    ELSIF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'Cannot delete configuration keys. Only updates allowed.';
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- Only allow changes to value and updated_at columns
+        IF OLD.key != NEW.key THEN
+            RAISE EXCEPTION 'Cannot change configuration key. Only value updates allowed.';
+        END IF;
+        IF OLD.value_type != NEW.value_type THEN
+            RAISE EXCEPTION 'Cannot change configuration value_type. Only value updates allowed.';
+        END IF;
+        IF OLD.description != NEW.description THEN
+            RAISE EXCEPTION 'Cannot change configuration description. Only value updates allowed.';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- =============================================================================
 -- TRIGGERS
 -- =============================================================================
@@ -387,6 +522,17 @@ CREATE TRIGGER trigger_refresh_active_knowledge_collision
     FOR EACH STATEMENT
     EXECUTE FUNCTION refresh_active_knowledge_search();
 
+-- Configuration protection
+CREATE TRIGGER validate_config_type_trigger
+    BEFORE INSERT OR UPDATE ON config
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_config_type();
+
+CREATE TRIGGER prevent_config_insert_delete_update
+    BEFORE INSERT OR DELETE OR UPDATE ON config
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_config_changes();
+
 CREATE TRIGGER trigger_refresh_active_knowledge_scope_name
     AFTER UPDATE OF name ON scopes
     FOR EACH STATEMENT
@@ -404,6 +550,12 @@ CREATE TRIGGER trigger_refresh_active_knowledge_namespace_name
 INSERT INTO namespaces (name, description) 
 VALUES ('global', 'Universal knowledge accessible everywhere')
 ON CONFLICT (name) DO NOTHING;
+
+-- Initial configuration values
+INSERT INTO config (key, value, value_type, description) VALUES
+('search.relevance_threshold', '0.4', 'float', 'Minimum ts_rank score for search results'),
+('search.language', 'english', 'text', 'Full-text search language configuration'),
+('search.max_results', '50', 'integer', 'Maximum number of results per query');
 
 -- =============================================================================
 -- PERFORMANCE TUNING
@@ -425,6 +577,7 @@ COMMENT ON TABLE scope_parents IS 'Multiple inheritance relationships between sc
 COMMENT ON TABLE scope_hierarchy IS 'Flattened ancestor arrays for fast knowledge retrieval';
 COMMENT ON TABLE knowledge IS 'Searchable content with pre-computed full-text search vectors';
 COMMENT ON TABLE knowledge_collisions IS 'Conflict resolution audit trail for competing knowledge';
+COMMENT ON TABLE config IS 'Global runtime configuration with type safety - only value updates allowed';
 
 COMMENT ON MATERIALIZED VIEW mv_active_knowledge_search IS 'Pre-joined, collision-filtered knowledge for fast search';
 
@@ -434,3 +587,12 @@ COMMENT ON FUNCTION get_task_context IS 'Multi-query knowledge retrieval with sc
 COMMENT ON FUNCTION enforce_default_parent IS 'Ensures all scopes inherit from default scope';
 COMMENT ON FUNCTION prevent_global_namespace_deletion IS 'Prevents deletion of the global namespace';
 COMMENT ON FUNCTION prevent_default_scope_deletion IS 'Prevents direct deletion of default scopes while allowing cascade deletion';
+
+COMMENT ON FUNCTION get_config_internal IS 'Internal helper for configuration retrieval with optional type validation';
+COMMENT ON FUNCTION get_config_text IS 'Get configuration value as text - works for all types';
+COMMENT ON FUNCTION get_config_integer IS 'Get configuration value as integer - validates type';
+COMMENT ON FUNCTION get_config_float IS 'Get configuration value as float - validates type';
+COMMENT ON FUNCTION get_config_boolean IS 'Get configuration value as boolean - validates type';
+COMMENT ON FUNCTION update_config IS 'Update configuration value with type validation - only value changes allowed';
+COMMENT ON FUNCTION validate_config_type IS 'Validates configuration values match their declared types';
+COMMENT ON FUNCTION prevent_config_changes IS 'Prevents insert/delete and protects key/type/description from changes';
