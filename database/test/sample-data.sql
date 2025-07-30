@@ -508,7 +508,7 @@ BEGIN
      'shopcraft business intelligence dashboard sales metrics customer lifetime value inventory turnover predictive analytics demand forecasting',
      'L'),
     
-    -- Collision Test Items - Multi-Level Collisions
+    -- Conflict Test Items - Multi-Level Conflicts
     (shopcraft_default_scope_id,
      'ShopCraft testing requires payment flow integration tests with PCI compliance validation and fraud detection scenario coverage.',
      'shopcraft testing payment flow integration pci compliance validation fraud detection scenario coverage',
@@ -524,7 +524,7 @@ BEGIN
      'shopcraft deployments customer notification staging validation windows rollback procedures payment system updates',
      'M'),
     
-    -- Collision Test Items - Single-Level Collisions  
+    -- Conflict Test Items - Single-Level Conflicts  
     (shopcraft_default_scope_id,
      'ShopCraft API rate limiting: 1000 requests per minute for premium users, 100 for basic users, with Redis-based distributed throttling.',
      'shopcraft api rate limiting 1000 requests premium 100 basic redis distributed throttling',
@@ -552,13 +552,13 @@ BEGIN
      'shopcraft mobile responsive css grid flexbox breakpoints touch targets ios safari android chrome',
      'M'),
     
-    -- Multi-Level Collision Winner: Frontend Testing
+    -- Multi-Level Conflict Winner: Frontend Testing
     (frontend_scope_id,
      'Frontend testing includes visual regression tests with Percy and accessibility audits for all components using axe-core and manual screen reader validation.',
      'frontend testing visual regression percy accessibility audits components axe-core screen reader validation',
      'M'),
     
-    -- Single-Level Collision: Frontend vs ShopCraft Default
+    -- Single-Level Conflict: Frontend vs ShopCraft Default
     (frontend_scope_id,
      'Frontend components use styled-components with custom breakpoint system and mobile-first responsive design patterns for optimal performance.',
      'frontend components styled-components custom breakpoint mobile-first responsive design performance',
@@ -586,13 +586,13 @@ BEGIN
      'shopcraft api testing jest supertest postman code coverage mock external services integration',
      'M'),
     
-    -- Multi-Level Collision Winner: Backend Error Handling
+    -- Multi-Level Conflict Winner: Backend Error Handling
     (backend_scope_id,
      'Backend API errors include correlation IDs, structured logging, and circuit breaker patterns for handling external service failures and timeouts.',
      'backend api errors correlation ids structured logging circuit breaker external service failures timeouts',
      'L'),
     
-    -- Single-Level Collision: Backend vs ShopCraft Default
+    -- Single-Level Conflict: Backend vs ShopCraft Default
     (backend_scope_id,
      'Backend API requires dedicated connection pools per service with circuit breaker patterns for database failures and automatic failover mechanisms.',
      'backend api dedicated connection pools service circuit breaker database failures automatic failover',
@@ -620,13 +620,13 @@ BEGIN
      'shopcraft backup postgresql redis cloudwatch logs retention automated 6 hours 30 days 90 days',
      'M'),
     
-    -- Multi-Level Collision Winner: DevOps Deployment
+    -- Multi-Level Conflict Winner: DevOps Deployment
     (devops_scope_id,
      'DevOps uses canary deployments with 5% traffic splits and automated rollback triggers based on error rate thresholds and performance metrics.',
      'devops canary deployments 5 percent traffic splits automated rollback triggers error rate performance metrics',
      'XL'),
     
-    -- Single-Level Collision: DevOps vs Global Default
+    -- Single-Level Conflict: DevOps vs Global Default
     (devops_scope_id,
      'DevOps log management uses centralized ELK stack with 90-day retention and automated cleanup workflows for compliance and storage optimization.',
      'devops log management centralized elk stack 90-day retention automated cleanup workflows compliance storage optimization',
@@ -636,10 +636,10 @@ BEGIN
 END $$;
 
 -- =============================================================================
--- COLLISION RESOLUTION TEST DATA
+-- CONFLICT RESOLUTION TEST DATA
 -- =============================================================================
 
--- Create collision resolution records to test collision system
+-- Create conflict resolution records to test conflict system
 -- Note: IDs will be determined after insertion, this is conceptual structure
 
 DO $$
@@ -774,37 +774,37 @@ BEGIN
     WHERE n.name = 'shopcraft' AND s.name = 'devops-deploy' 
     AND k.content LIKE 'DevOps log management uses centralized%';
     
-    -- Create collision resolution records
-    -- Multi-Level Collisions (3 scenarios)
+    -- Create conflict resolution records
+    -- Multi-Level Conflicts (3 scenarios)
     
     -- 1. Testing: Frontend wins over ShopCraft and Global
-    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids) 
+    INSERT INTO knowledge_conflicts (active_knowledge_id, suppressed_knowledge_ids) 
     VALUES (frontend_testing_id, ARRAY[shopcraft_testing_id, global_testing_id]);
     
     -- 2. Error Handling: Backend wins over ShopCraft and Global  
-    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    INSERT INTO knowledge_conflicts (active_knowledge_id, suppressed_knowledge_ids)
     VALUES (backend_error_id, ARRAY[shopcraft_error_id, global_error_handling_id]);
     
     -- 3. Deployment: DevOps wins over ShopCraft and Global
-    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    INSERT INTO knowledge_conflicts (active_knowledge_id, suppressed_knowledge_ids)
     VALUES (devops_deployment_id, ARRAY[shopcraft_deployment_id, global_deployment_id]);
     
-    -- Single-Level Collisions (4 scenarios)
+    -- Single-Level Conflicts (4 scenarios)
     
     -- 4. Rate Limiting: ShopCraft wins over Global
-    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    INSERT INTO knowledge_conflicts (active_knowledge_id, suppressed_knowledge_ids)
     VALUES (shopcraft_rate_limiting_id, ARRAY[global_rate_limiting_id]);
     
     -- 5. Database Connection: Backend wins over ShopCraft  
-    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    INSERT INTO knowledge_conflicts (active_knowledge_id, suppressed_knowledge_ids)
     VALUES (backend_connection_id, ARRAY[shopcraft_database_id]);
     
     -- 6. Logging: DevOps wins over Global
-    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    INSERT INTO knowledge_conflicts (active_knowledge_id, suppressed_knowledge_ids)
     VALUES (devops_logging_id, ARRAY[global_logging_id]);
     
     -- 7. Mobile Design: Frontend wins over ShopCraft
-    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    INSERT INTO knowledge_conflicts (active_knowledge_id, suppressed_knowledge_ids)
     VALUES (frontend_mobile_id, ARRAY[shopcraft_mobile_id]);
     
 END $$;

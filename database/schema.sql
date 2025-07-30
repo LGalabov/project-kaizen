@@ -75,15 +75,15 @@ CREATE INDEX idx_knowledge_scope_task ON knowledge (scope_id, task_size);
 CREATE INDEX idx_knowledge_search_gin ON knowledge USING GIN (search_vector);
 
 -- Conflict resolution with audit trail
-CREATE TABLE knowledge_collisions (
+CREATE TABLE knowledge_conflicts (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     active_knowledge_id BIGINT NOT NULL REFERENCES knowledge(id) ON DELETE CASCADE,
     suppressed_knowledge_ids BIGINT[] NOT NULL,
     resolved_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_collisions_active ON knowledge_collisions (active_knowledge_id);
-CREATE INDEX idx_collisions_suppressed ON knowledge_collisions USING GIN (suppressed_knowledge_ids);
+CREATE INDEX idx_conflicts_active ON knowledge_conflicts (active_knowledge_id);
+CREATE INDEX idx_conflicts_suppressed ON knowledge_conflicts USING GIN (suppressed_knowledge_ids);
 
 -- Global runtime configuration
 CREATE TABLE config (
@@ -99,7 +99,7 @@ CREATE TABLE config (
 -- MATERIALIZED VIEWS
 -- =============================================================================
 
--- Pre-joined, collision-filtered knowledge for fast search
+-- Pre-joined, conflict-filtered knowledge for fast search
 CREATE MATERIALIZED VIEW mv_active_knowledge_search AS
 SELECT 
     k.id,
@@ -115,7 +115,7 @@ FROM knowledge k
 JOIN scopes s ON k.scope_id = s.id
 JOIN namespaces n ON s.namespace_id = n.id
 WHERE NOT EXISTS (
-    SELECT 1 FROM knowledge_collisions kc 
+    SELECT 1 FROM knowledge_conflicts kc 
     WHERE k.id = ANY(kc.suppressed_knowledge_ids)
 );
 
@@ -537,8 +537,8 @@ CREATE TRIGGER trigger_refresh_active_knowledge
     FOR EACH STATEMENT
     EXECUTE FUNCTION refresh_active_knowledge_search();
 
-CREATE TRIGGER trigger_refresh_active_knowledge_collision
-    AFTER INSERT OR UPDATE OR DELETE ON knowledge_collisions
+CREATE TRIGGER trigger_refresh_active_knowledge_conflict
+    AFTER INSERT OR UPDATE OR DELETE ON knowledge_conflicts
     FOR EACH STATEMENT
     EXECUTE FUNCTION refresh_active_knowledge_search();
 
@@ -600,10 +600,10 @@ COMMENT ON TABLE scopes IS 'Project boundaries within namespaces';
 COMMENT ON TABLE scope_parents IS 'Multiple inheritance relationships between scopes';
 COMMENT ON TABLE scope_hierarchy IS 'Flattened ancestor arrays for fast knowledge retrieval';
 COMMENT ON TABLE knowledge IS 'Searchable content with pre-computed full-text search vectors';
-COMMENT ON TABLE knowledge_collisions IS 'Conflict resolution audit trail for competing knowledge';
+COMMENT ON TABLE knowledge_conflicts IS 'Conflict resolution audit trail for competing knowledge';
 COMMENT ON TABLE config IS 'Global runtime configuration with type safety - only value updates allowed';
 
-COMMENT ON MATERIALIZED VIEW mv_active_knowledge_search IS 'Pre-joined, collision-filtered knowledge for fast search';
+COMMENT ON MATERIALIZED VIEW mv_active_knowledge_search IS 'Pre-joined, conflict-filtered knowledge for fast search';
 
 COMMENT ON FUNCTION get_default_scope_id IS 'Returns default scope ID for any namespace';
 COMMENT ON FUNCTION get_global_default_scope_id IS 'Returns global:default scope ID';

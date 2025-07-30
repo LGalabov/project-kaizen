@@ -2,7 +2,7 @@
 
 This document provides concrete examples of how AI should behave with the MCP knowledge system across various scenarios, from basic knowledge storage to complex real-world workflows.
 
-*Note: Knowledge enters the system through explicit MCP endpoint calls. The system uses namespace:scope hierarchy with full-text search and collision resolution.*
+*Note: Knowledge enters the system through explicit MCP endpoint calls. The system uses namespace:scope hierarchy with full-text search and conflict resolution.*
 
 ## Knowledge Storage Behaviors
 
@@ -53,7 +53,7 @@ AI: [Stores password security knowledge in backend-team scope with authenticatio
     "I've stored the password hashing standard for the backend team."
 ```
 
-### Learning from Failure with Collision Resolution
+### Learning from Failure with Conflict Resolution
 
 **When an error occurs and creates conflicting knowledge:**
 ```
@@ -71,11 +71,11 @@ AI: [Searches for dataset processing knowledge and finds conflict]
      - New: Process in chunks of 5,000 records
      - Existing: Load full datasets for accuracy
      
-     Should I resolve this collision?"
+     Should I resolve this conflict?"
 
 User: "Yes, the chunking approach is better"
-AI: [Resolves collision by marking chunking approach as active, suppressing full dataset approach]
-    "Collision resolved - chunking approach is now active."
+AI: [Resolves conflict by marking chunking approach as active, suppressing full dataset approach]
+    "Conflict resolved - chunking approach is now active."
 ```
 
 ## Real-World User Journey Examples
@@ -316,7 +316,7 @@ AI: [Searches for comprehensive OAuth knowledge using L task size filter and mul
      - Monitoring and observability patterns"
 ```
 
-## Advanced Collision Resolution
+## Advanced Conflict Resolution
 
 ### Handling Conflicting Standards
 
@@ -335,7 +335,7 @@ AI: [Stores service-specific indentation rule]
 [Service rule automatically overrides global due to scope precedence]
 ```
 
-### Explicit Collision Resolution
+### Explicit Conflict Resolution
 
 **When same-level conflicts occur:**
 ```
@@ -347,8 +347,8 @@ AI: [Search returns two conflicting entries from same scope]
      Which should be active?"
 
 User: "Use 30 seconds, the 60-second rule is outdated"
-AI: [Resolves collision by marking 30-second rule as active, suppressing 60-second rule]
-    "Collision resolved - 30-second timeout is now active, 60-second rule suppressed."
+AI: [Resolves conflict by marking 30-second rule as active, suppressing 60-second rule]
+    "Conflict resolved - 30-second timeout is now active, 60-second rule suppressed."
 ```
 
 ## Knowledge Search Validation Examples
@@ -383,7 +383,7 @@ These examples demonstrate how Project Kaizen enables:
 2. **Multi-query context retrieval** for complex task understanding
 3. **Scope hierarchy inheritance** for organized knowledge access
 4. **Task size filtering** for appropriate knowledge complexity
-5. **Collision resolution** for conflicting information
+5. **Conflict resolution** for conflicting information
 6. **Context field strategy** for effective searchability
 7. **Full-text search** with relevance ranking
 

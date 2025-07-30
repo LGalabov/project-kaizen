@@ -448,9 +448,9 @@ Covers:
 
 **Value**: Immediate removal from search index and scope hierarchy.
 
-### resolve_knowledge_collision
+### resolve_knowledge_conflict
 
-**Purpose**: Mark knowledge entries for collision resolution when contradictory information exists.
+**Purpose**: Mark knowledge entries for conflict resolution when contradictory information exists.
 
 **Input**:
 ```json
@@ -504,4 +504,4 @@ Covers:
 }
 ```
 
-**Value**: Multi-query decomposition for complex tasks, PostgreSQL full-text search, scope hierarchy traversal with collision detection support.
+**Value**: Multi-query decomposition for complex tasks, PostgreSQL full-text search, scope hierarchy traversal with conflict detection support.
