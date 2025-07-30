@@ -52,7 +52,7 @@ BEGIN
     (global_default_scope_id,
      'Never log sensitive data like passwords, API keys, or personal information. Use structured logging with appropriate log levels. Sanitize all log outputs.',
      'logging sensitive data passwords api keys personal information structured sanitize',
-     'XS'),
+     NULL),
     
     (global_default_scope_id,
      'Implement input validation on both client and server sides. Use parameterized queries to prevent SQL injection. Validate file uploads for type and size.',
@@ -62,7 +62,7 @@ BEGIN
     (global_default_scope_id,
      'Environment variables should never be committed to version control. Use .env files locally and proper secret management in production. Always add .env to .gitignore.',
      'environment variables secrets gitignore env file security configuration',
-     'S'),
+     NULL),
     
     (global_default_scope_id,
      'API rate limiting should be implemented to prevent abuse: 100 requests per minute for authenticated users, 20 requests per minute for anonymous users. Use Redis for distributed rate limiting.',
@@ -73,33 +73,33 @@ BEGIN
     (global_default_scope_id,
      'Git commit messages should follow semantic versioning: feat(scope): description for new features, fix(scope): description for bug fixes, docs: for documentation changes. Keep first line under 50 characters.',
      'git commit message semantic versioning feat fix docs scope changelog',
-     'XS'),
+     NULL),
     
     (global_default_scope_id,
      'All pull requests must include: clear description, testing instructions, screenshots for UI changes, and link to related issues. Request review from at least one team member.',
      'pull request description testing instructions screenshots ui changes review team member',
-     'XS'),
+     NULL),
     
     (global_default_scope_id,
      'Code comments should explain WHY, not WHAT. Focus on business logic, edge cases, and complex algorithms. Avoid obvious comments that repeat the code.',
      'code comments why not what business logic edge cases algorithms obvious',
-     'XS'),
+     NULL),
     
     (global_default_scope_id,
      'Documentation should be written for the intended audience. Technical docs for developers, user guides for end users. Keep documentation up-to-date with code changes.',
      'documentation audience technical developers user guides up-to-date code changes',
-     'S'),
+     NULL),
     
     (global_default_scope_id,
      'Use semantic versioning (MAJOR.MINOR.PATCH) for releases. Increment MAJOR for breaking changes, MINOR for new features, PATCH for bug fixes. Tag releases in git.',
      'semantic versioning major minor patch releases breaking changes features bug fixes git tags',
-     'S'),
+     NULL),
     
     -- Design Patterns and Architecture
     (global_default_scope_id,
      'Follow SOLID principles: Single Responsibility, Open-Closed, Liskov Substitution, Interface Segregation, Dependency Inversion. Design classes with single, well-defined purposes.',
      'solid principles single responsibility open closed liskov substitution interface segregation dependency inversion',
-     'M'),
+     NULL),
     
     (global_default_scope_id,
      'Use dependency injection for loose coupling. Inject dependencies through constructors or setters rather than creating them internally. Makes testing easier.',
@@ -114,12 +114,12 @@ BEGIN
     (global_default_scope_id,
      'Use design patterns appropriately: Factory for object creation, Observer for event handling, Strategy for algorithm selection, Repository for data access.',
      'design patterns factory observer strategy repository object creation event handling algorithm selection data access',
-     'M'),
+     NULL),
     
     (global_default_scope_id,
      'Apply separation of concerns: keep business logic separate from presentation layer, data access layer separate from business logic. Use layered architecture.',
      'separation of concerns business logic presentation layer data access layered architecture',
-     'M'),
+     NULL),
     
     -- Performance and Scalability
     (global_default_scope_id,
@@ -162,38 +162,38 @@ BEGIN
     (global_default_scope_id,
      'Use consistent naming conventions: PascalCase for classes, camelCase for functions/variables, UPPER_CASE for constants. Be descriptive but concise.',
      'naming conventions pascalcase classes camelcase functions variables upper case constants descriptive concise',
-     'XS'),
+     NULL),
     
     (global_default_scope_id,
      'Keep functions small and focused (max 20-30 lines). Extract complex logic into separate functions. Use early returns to reduce nesting.',
      'functions small focused max lines complex logic separate functions early returns reduce nesting',
-     'S'),
+     NULL),
     
     (global_default_scope_id,
      'Remove dead code and unused imports regularly. Use linters and formatters to maintain consistent code style. Set up pre-commit hooks.',
      'dead code unused imports linters formatters consistent style pre-commit hooks',
-     'XS'),
+     NULL),
     
     (global_default_scope_id,
      'Use meaningful variable names that describe the data they hold. Avoid abbreviations and single-letter variables (except for loop counters).',
      'meaningful variable names describe data avoid abbreviations single letter loop counters',
-     'XS'),
+     NULL),
     
     -- API Design Standards
     (global_default_scope_id,
      'RESTful APIs should use appropriate HTTP methods: GET for retrieval, POST for creation, PUT for updates, DELETE for removal. Use proper status codes.',
      'restful apis http methods get post put delete status codes retrieval creation updates removal',
-     'S'),
+     NULL),
     
     (global_default_scope_id,
      'API responses should be consistent in structure. Include metadata like pagination info, timestamps, and request IDs for debugging.',
      'api responses consistent structure metadata pagination timestamps request ids debugging',
-     'S'),
+     NULL),
     
     (global_default_scope_id,
      'Implement API versioning from the start. Use URL versioning (/api/v1/) or header versioning. Maintain backward compatibility when possible.',
      'api versioning url versioning header versioning backward compatibility',
-     'S'),
+     NULL),
     
     (global_default_scope_id,
      'Validate all API inputs: required fields, data types, format constraints. Return clear error messages with field-specific validation failures.',
@@ -247,12 +247,12 @@ BEGIN
     (global_default_scope_id,
      'JavaScript/TypeScript: Use strict mode, prefer const over let, use async/await over callbacks, implement proper type definitions in TypeScript.',
      'javascript typescript strict mode const let async await callbacks type definitions',
-     'S'),
+     NULL),
     
     (global_default_scope_id,
      'Python: Follow PEP 8 style guide, use virtual environments, implement proper exception handling, use type hints for function parameters and return values.',
      'python pep 8 style guide virtual environments exception handling type hints function parameters return values',
-     'S'),
+     NULL),
     
     (global_default_scope_id,
      'Java: Follow Oracle naming conventions, use proper access modifiers, implement equals() and hashCode() together, use try-with-resources for resource management.',
@@ -284,17 +284,17 @@ BEGIN
     (global_default_scope_id,
      'Conduct regular code reviews focusing on logic, security, performance, and maintainability. Provide constructive feedback and learn from others.',
      'code reviews logic security performance maintainability constructive feedback learn from others',
-     'S'),
+     NULL),
     
     (global_default_scope_id,
      'Participate in daily standups, sprint planning, and retrospectives. Communicate blockers early and ask for help when needed.',
      'daily standups sprint planning retrospectives communicate blockers ask for help',
-     'XS'),
+     NULL),
     
     (global_default_scope_id,
      'Document architectural decisions and their rationale. Share knowledge through team presentations, pair programming, and mentoring.',
      'document architectural decisions rationale share knowledge team presentations pair programming mentoring',
-     'S'),
+     NULL),
     
     -- Long-term Maintenance Standards
     (global_default_scope_id,
@@ -305,7 +305,7 @@ BEGIN
     (global_default_scope_id,
      'Refactor code regularly to improve maintainability. Remove technical debt during feature development. Do not let code quality deteriorate over time.',
      'refactor code maintainability remove technical debt feature development code quality deteriorate',
-     'M'),
+     NULL),
     
     (global_default_scope_id,
      'Plan for scalability from the beginning. Design systems to handle growth in users, data, and features. Monitor performance trends.',
@@ -315,14 +315,101 @@ BEGIN
     (global_default_scope_id,
      'Implement proper logging retention policies. Archive old logs, clean up temporary files, and manage disk space proactively.',
      'logging retention policies archive old logs clean temporary files manage disk space proactively',
-     'S');
+     'S'),
+    
+    -- Cloud and AWS Standards
+    (global_default_scope_id,
+     'Use AWS IAM roles and policies for secure access control. Follow principle of least privilege. Rotate access keys regularly and use temporary credentials when possible.',
+     'aws iam roles policies least privilege access keys rotation temporary credentials security',
+     'M'),
+    
+    (global_default_scope_id,
+     'Implement AWS CloudFormation or Terraform for infrastructure as code. Version control infrastructure templates. Use stack sets for multi-account deployments.',
+     'aws cloudformation terraform infrastructure as code stack sets multi-account deployment templates',
+     'L'),
+    
+    (global_default_scope_id,
+     'Configure AWS CloudWatch alarms for critical metrics: CPU utilization, memory usage, disk space, application errors. Set up SNS notifications for alerts.',
+     'aws cloudwatch alarms cpu memory disk application errors sns notifications critical metrics',
+     'M'),
+    
+    -- Advanced Testing Strategies
+    (global_default_scope_id,
+     'Implement contract testing for microservices using tools like Pact. Test API contracts between services to catch breaking changes early.',
+     'contract testing microservices pact api contracts breaking changes integration testing',
+     'L'),
+    
+    (global_default_scope_id,
+     'Use property-based testing for complex algorithms. Generate random test inputs to discover edge cases. Implement mutation testing to verify test quality.',
+     'property based testing algorithms random inputs edge cases mutation testing test quality',
+     'M'),
+    
+    (global_default_scope_id,
+     'Implement visual regression testing for UI components. Use tools like Percy or Chromatic to catch visual changes. Include cross-browser testing.',
+     'visual regression testing ui components percy chromatic cross browser testing visual changes',
+     'M'),
+    
+    -- Accessibility Standards
+    (global_default_scope_id,
+     'Implement WCAG 2.1 AA accessibility standards. Use semantic HTML, proper ARIA labels, keyboard navigation support, and screen reader compatibility.',
+     'wcag accessibility standards semantic html aria labels keyboard navigation screen reader compatibility',
+     'M'),
+    
+    (global_default_scope_id,
+     'Test with actual screen readers and keyboard-only navigation. Include alt text for images, captions for videos, and proper color contrast ratios.',
+     'screen readers keyboard navigation alt text captions color contrast accessibility testing',
+     'S'),
+    
+    -- Advanced Security Patterns
+    (global_default_scope_id,
+     'Implement OAuth 2.0 with PKCE for secure authentication flows. Use refresh tokens with proper rotation. Validate all redirect URLs against whitelist.',
+     'oauth 2.0 pkce authentication flows refresh tokens rotation redirect urls whitelist security',
+     'L'),
+    
+    (global_default_scope_id,
+     'Use Content Security Policy (CSP) headers to prevent XSS attacks. Implement CSRF protection with tokens. Validate file uploads for malicious content.',
+     'content security policy csp xss csrf protection tokens file uploads malicious content validation',
+     'M'),
+    
+    -- Internationalization and Localization
+    (global_default_scope_id,
+     'Implement i18n with proper locale handling, currency formatting, date/time formats, and RTL language support. Use translation management systems.',
+     'internationalization i18n locale currency date time rtl languages translation management systems',
+     'L'),
+    
+    -- Advanced Async Patterns
+    (global_default_scope_id,
+     'Use message queues (RabbitMQ, Apache Kafka) for decoupled async processing. Implement dead letter queues for failed messages. Monitor queue metrics.',
+     'message queues rabbitmq kafka async processing dead letter queues failed messages metrics monitoring',
+     'L'),
+    
+    -- Additional Global Standards
+    (global_default_scope_id,
+     'Implement proper HTTP caching with Cache-Control headers, ETags, and Last-Modified timestamps. Use CDN for static assets and implement cache invalidation strategies.',
+     'http caching cache control etags last modified cdn static assets cache invalidation strategies',
+     'M'),
+    
+    (global_default_scope_id,
+     'Use database connection pooling with appropriate limits. Implement connection health checks, timeout configurations, and graceful degradation for database failures.',
+     'database connection pooling limits health checks timeout configurations graceful degradation failures',
+     'M'),
+    
+    (global_default_scope_id,
+     'Implement proper API documentation with OpenAPI/Swagger specifications. Include request/response examples, error codes, and authentication requirements.',
+     'api documentation openapi swagger specifications request response examples error codes authentication requirements',
+     'S'),
+    
+    (global_default_scope_id,
+     'Use environment-specific configuration management. Implement feature toggles, A/B testing frameworks, and configuration validation with schemas.',
+     'environment configuration management feature toggles ab testing frameworks configuration validation schemas',
+     'M');
     
     -- Insert shopcraft:default knowledge
     INSERT INTO knowledge (scope_id, content, context, task_size) VALUES
     (shopcraft_default_scope_id,
      'ShopCraft uses microservices architecture with React frontend, Node.js backend services, PostgreSQL database, and Redis for caching. All services communicate via REST APIs with JWT authentication.',
      'shopcraft microservices react nodejs postgresql redis rest api jwt authentication architecture',
-     'L'),
+     NULL),
     
     (shopcraft_default_scope_id,
      'ShopCraft payment processing integrates with Stripe for credit cards and PayPal for alternative payments. All payment data must be PCI DSS compliant. Use webhooks for payment status updates.',
@@ -337,6 +424,110 @@ BEGIN
     (shopcraft_default_scope_id,
      'ShopCraft customer data includes personal information, purchase history, and preferences. All customer data must be encrypted at rest and in transit. GDPR compliance required for EU customers.',
      'shopcraft customer data personal information purchase history gdpr encryption privacy',
+     NULL),
+    
+    -- Advanced ShopCraft Business Logic
+    (shopcraft_default_scope_id,
+     'ShopCraft order management implements complex workflows: order validation, fraud detection, inventory reservation, payment authorization, fulfillment routing, and shipment tracking.',
+     'shopcraft order management workflow validation fraud detection inventory payment fulfillment shipping tracking',
+     'XL'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft search uses Elasticsearch with faceted filtering, autocomplete, spell correction, and personalized ranking. Search analytics track query performance and user behavior.',
+     'shopcraft search elasticsearch faceted filtering autocomplete spell correction personalized ranking analytics',
+     'L'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft recommendation engine uses collaborative filtering and content-based algorithms. Track user interactions, purchase history, and browsing patterns for personalization.',
+     'shopcraft recommendation engine collaborative filtering content based algorithms user interactions personalization',
+     'L'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft shopping cart persists across devices using Redis with 30-day expiration. Support guest checkout, saved items, and cart abandonment email campaigns.',
+     'shopcraft shopping cart persistence redis cross device guest checkout saved items abandonment email',
+     'M'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft user authentication supports OAuth social login, two-factor authentication, password reset flows, and account verification. Use JWT with refresh tokens.',
+     'shopcraft authentication oauth social login two factor password reset verification jwt refresh tokens',
+     'M'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft email system uses SendGrid for transactional emails: order confirmations, shipping notifications, password resets. Implement template management and tracking.',
+     'shopcraft email sendgrid transactional order confirmation shipping notification password reset template tracking',
+     'M'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft analytics tracks user behavior, conversion funnels, A/B test results, and business metrics. Use Google Analytics 4 and custom event tracking.',
+     'shopcraft analytics user behavior conversion funnels ab testing business metrics google analytics events',
+     'M'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft A/B testing framework supports feature flags, traffic splitting, statistical significance testing, and conversion tracking for continuous optimization.',
+     'shopcraft ab testing feature flags traffic splitting statistical significance conversion tracking optimization',
+     'L'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft mobile app uses React Native with shared business logic. Implement push notifications, offline support, and native payment integrations.',
+     'shopcraft mobile react native shared logic push notifications offline support native payments',
+     'L'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft social media integration includes sharing buttons, social login, customer reviews syndication, and influencer partnership tracking.',
+     'shopcraft social media sharing login reviews syndication influencer partnership tracking integration',
+     'M'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft advanced payment flows support wallet payments, buy-now-pay-later, subscriptions, refunds, chargebacks, and multi-currency transactions.',
+     'shopcraft payment wallet bnpl subscriptions refunds chargebacks multi currency advanced flows',
+     'L'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft customer support includes live chat, ticket system, FAQ bot, return processing, and escalation workflows. Integrate with CRM systems.',
+     'shopcraft customer support live chat tickets faq bot returns escalation workflows crm integration',
+     'M'),
+    
+    -- Additional ShopCraft Business Features
+    (shopcraft_default_scope_id,
+     'ShopCraft loyalty program tracks customer points, tier levels, reward redemption, and personalized offers. Integrate with email marketing and customer analytics.',
+     'shopcraft loyalty program points tier levels reward redemption personalized offers email marketing customer analytics',
+     'L'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft multi-vendor marketplace supports seller onboarding, commission calculations, payout scheduling, and vendor analytics dashboards.',
+     'shopcraft multi vendor marketplace seller onboarding commission calculations payout scheduling vendor analytics dashboards',
+     'XL'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft international expansion requires currency conversion, tax calculation by region, shipping zone management, and localized payment methods.',
+     'shopcraft international expansion currency conversion tax calculation region shipping zones localized payment methods',
+     'L'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft business intelligence dashboard aggregates sales metrics, customer lifetime value, inventory turnover, and predictive analytics for demand forecasting.',
+     'shopcraft business intelligence dashboard sales metrics customer lifetime value inventory turnover predictive analytics demand forecasting',
+     'L'),
+    
+    -- Collision Test Items - Multi-Level Collisions
+    (shopcraft_default_scope_id,
+     'ShopCraft testing requires payment flow integration tests with PCI compliance validation and fraud detection scenario coverage.',
+     'shopcraft testing payment flow integration pci compliance validation fraud detection scenario coverage',
+     'M'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft errors use user-friendly messages without exposing system internals for security. Include helpful suggestions for user actions.',
+     'shopcraft errors user friendly messages security system internals suggestions user actions',
+     'S'),
+    
+    (shopcraft_default_scope_id,
+     'ShopCraft deployments require customer notification and staging validation windows with rollback procedures for payment system updates.',
+     'shopcraft deployments customer notification staging validation windows rollback procedures payment system updates',
+     'M'),
+    
+    -- Collision Test Items - Single-Level Collisions  
+    (shopcraft_default_scope_id,
+     'ShopCraft API rate limiting: 1000 requests per minute for premium users, 100 for basic users, with Redis-based distributed throttling.',
+     'shopcraft api rate limiting 1000 requests premium 100 basic redis distributed throttling',
      'M');
     
     -- Insert frontend-team knowledge
@@ -359,7 +550,19 @@ BEGIN
     (frontend_scope_id,
      'ShopCraft mobile responsiveness uses CSS Grid and Flexbox with breakpoints at 768 pixels and 1024 pixels. Touch targets must be minimum 44 pixels. Test on iOS Safari and Android Chrome.',
      'shopcraft mobile responsive css grid flexbox breakpoints touch targets ios safari android chrome',
-     'M');
+     'M'),
+    
+    -- Multi-Level Collision Winner: Frontend Testing
+    (frontend_scope_id,
+     'Frontend testing includes visual regression tests with Percy and accessibility audits for all components using axe-core and manual screen reader validation.',
+     'frontend testing visual regression percy accessibility audits components axe-core screen reader validation',
+     'M'),
+    
+    -- Single-Level Collision: Frontend vs ShopCraft Default
+    (frontend_scope_id,
+     'Frontend components use styled-components with custom breakpoint system and mobile-first responsive design patterns for optimal performance.',
+     'frontend components styled-components custom breakpoint mobile-first responsive design performance',
+     'S');
     
     -- Insert backend-api knowledge  
     INSERT INTO knowledge (scope_id, content, context, task_size) VALUES
@@ -381,6 +584,18 @@ BEGIN
     (backend_scope_id,
      'ShopCraft API testing uses Jest for unit tests, Supertest for integration tests, and Postman collections for manual testing. Maintain 80 percent or higher code coverage. Mock external services in tests.',
      'shopcraft api testing jest supertest postman code coverage mock external services integration',
+     'M'),
+    
+    -- Multi-Level Collision Winner: Backend Error Handling
+    (backend_scope_id,
+     'Backend API errors include correlation IDs, structured logging, and circuit breaker patterns for handling external service failures and timeouts.',
+     'backend api errors correlation ids structured logging circuit breaker external service failures timeouts',
+     'L'),
+    
+    -- Single-Level Collision: Backend vs ShopCraft Default
+    (backend_scope_id,
+     'Backend API requires dedicated connection pools per service with circuit breaker patterns for database failures and automatic failover mechanisms.',
+     'backend api dedicated connection pools service circuit breaker database failures automatic failover',
      'M');
     
     -- Insert devops-deploy knowledge
@@ -403,7 +618,193 @@ BEGIN
     (devops_scope_id,
      'ShopCraft backup strategy: PostgreSQL automated backups every 6 hours with 30-day retention. Redis persistence enabled. Application logs stored in CloudWatch with 90-day retention.',
      'shopcraft backup postgresql redis cloudwatch logs retention automated 6 hours 30 days 90 days',
-     'M');
+     'M'),
     
+    -- Multi-Level Collision Winner: DevOps Deployment
+    (devops_scope_id,
+     'DevOps uses canary deployments with 5% traffic splits and automated rollback triggers based on error rate thresholds and performance metrics.',
+     'devops canary deployments 5 percent traffic splits automated rollback triggers error rate performance metrics',
+     'XL'),
+    
+    -- Single-Level Collision: DevOps vs Global Default
+    (devops_scope_id,
+     'DevOps log management uses centralized ELK stack with 90-day retention and automated cleanup workflows for compliance and storage optimization.',
+     'devops log management centralized elk stack 90-day retention automated cleanup workflows compliance storage optimization',
+     'L');
+    
+    
+END $$;
+
+-- =============================================================================
+-- COLLISION RESOLUTION TEST DATA
+-- =============================================================================
+
+-- Create collision resolution records to test collision system
+-- Note: IDs will be determined after insertion, this is conceptual structure
+
+DO $$
+DECLARE
+    -- Global scope knowledge IDs (will be resolved dynamically)
+    global_testing_id BIGINT;
+    global_error_handling_id BIGINT;
+    global_deployment_id BIGINT;
+    global_rate_limiting_id BIGINT;
+    global_logging_id BIGINT;
+    
+    -- ShopCraft scope knowledge IDs  
+    shopcraft_testing_id BIGINT;
+    shopcraft_error_id BIGINT;
+    shopcraft_deployment_id BIGINT;
+    shopcraft_rate_limiting_id BIGINT;
+    shopcraft_database_id BIGINT;
+    shopcraft_mobile_id BIGINT;
+    
+    -- Project scope knowledge IDs (winners)
+    frontend_testing_id BIGINT;
+    frontend_mobile_id BIGINT;
+    backend_error_id BIGINT;
+    backend_connection_id BIGINT;
+    devops_deployment_id BIGINT;
+    devops_logging_id BIGINT;
+    
+BEGIN
+    -- Find existing global knowledge items to be suppressed
+    SELECT k.id INTO global_testing_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'global' AND s.name = 'default' 
+    AND k.content LIKE 'Write tests first (TDD)%';
+    
+    SELECT k.id INTO global_error_handling_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'global' AND s.name = 'default' 
+    AND k.content LIKE 'Implement proper error handling%';
+    
+    SELECT k.id INTO global_deployment_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'global' AND s.name = 'default' 
+    AND k.content LIKE 'Use blue-green or rolling deployments%';
+    
+    SELECT k.id INTO global_rate_limiting_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'global' AND s.name = 'default' 
+    AND k.content LIKE 'API rate limiting should be implemented%';
+    
+    SELECT k.id INTO global_logging_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'global' AND s.name = 'default' 
+    AND k.content LIKE 'Implement proper logging retention%';
+    
+    -- Find new ShopCraft knowledge items
+    SELECT k.id INTO shopcraft_testing_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'default' 
+    AND k.content LIKE 'ShopCraft testing requires payment flow%';
+    
+    SELECT k.id INTO shopcraft_error_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'default' 
+    AND k.content LIKE 'ShopCraft errors use user-friendly%';
+    
+    SELECT k.id INTO shopcraft_deployment_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'default' 
+    AND k.content LIKE 'ShopCraft deployments require customer%';
+    
+    SELECT k.id INTO shopcraft_rate_limiting_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'default' 
+    AND k.content LIKE 'ShopCraft API rate limiting: 1000%';
+    
+    -- Find existing ShopCraft items to be suppressed
+    SELECT k.id INTO shopcraft_database_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'default' 
+    AND k.content LIKE 'ShopCraft database uses PostgreSQL%';
+    
+    SELECT k.id INTO shopcraft_mobile_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'default' 
+    AND k.content LIKE 'ShopCraft mobile responsiveness uses%';
+    
+    -- Find new project-level winner items
+    SELECT k.id INTO frontend_testing_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'frontend-team' 
+    AND k.content LIKE 'Frontend testing includes visual regression%';
+    
+    SELECT k.id INTO frontend_mobile_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'frontend-team' 
+    AND k.content LIKE 'Frontend components use styled-components%';
+    
+    SELECT k.id INTO backend_error_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'backend-api' 
+    AND k.content LIKE 'Backend API errors include correlation%';
+    
+    SELECT k.id INTO backend_connection_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'backend-api' 
+    AND k.content LIKE 'Backend API requires dedicated connection%';
+    
+    SELECT k.id INTO devops_deployment_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'devops-deploy' 
+    AND k.content LIKE 'DevOps uses canary deployments%';
+    
+    SELECT k.id INTO devops_logging_id FROM knowledge k 
+    JOIN scopes s ON k.scope_id = s.id 
+    JOIN namespaces n ON s.namespace_id = n.id 
+    WHERE n.name = 'shopcraft' AND s.name = 'devops-deploy' 
+    AND k.content LIKE 'DevOps log management uses centralized%';
+    
+    -- Create collision resolution records
+    -- Multi-Level Collisions (3 scenarios)
+    
+    -- 1. Testing: Frontend wins over ShopCraft and Global
+    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids) 
+    VALUES (frontend_testing_id, ARRAY[shopcraft_testing_id, global_testing_id]);
+    
+    -- 2. Error Handling: Backend wins over ShopCraft and Global  
+    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    VALUES (backend_error_id, ARRAY[shopcraft_error_id, global_error_handling_id]);
+    
+    -- 3. Deployment: DevOps wins over ShopCraft and Global
+    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    VALUES (devops_deployment_id, ARRAY[shopcraft_deployment_id, global_deployment_id]);
+    
+    -- Single-Level Collisions (4 scenarios)
+    
+    -- 4. Rate Limiting: ShopCraft wins over Global
+    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    VALUES (shopcraft_rate_limiting_id, ARRAY[global_rate_limiting_id]);
+    
+    -- 5. Database Connection: Backend wins over ShopCraft  
+    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    VALUES (backend_connection_id, ARRAY[shopcraft_database_id]);
+    
+    -- 6. Logging: DevOps wins over Global
+    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    VALUES (devops_logging_id, ARRAY[global_logging_id]);
+    
+    -- 7. Mobile Design: Frontend wins over ShopCraft
+    INSERT INTO knowledge_collisions (active_knowledge_id, suppressed_knowledge_ids)
+    VALUES (frontend_mobile_id, ARRAY[shopcraft_mobile_id]);
     
 END $$;
