@@ -1,0 +1,25 @@
+services:
+  kaizen-postgres:
+    image: postgres:17
+    container_name: kaizen-db
+    environment:
+      POSTGRES_DB: kaizen_knowledge
+      POSTGRES_USER: kaizen_user
+      POSTGRES_PASSWORD: kaizen_passw0rd
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5453:5432"
+    volumes:
+      - kaizen_data:/var/lib/postgresql/data/pgdata
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./sample-data.sql:/docker-entrypoint-initdb.d/02-sample-data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kaizen_user -d kaizen_knowledge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  kaizen_data:
+    driver: local

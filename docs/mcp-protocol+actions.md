@@ -1,5 +1,7 @@
 # MCP Protocol and Actions
 
+**MCP is an implementation-agnostic protocol specification.** Like HTTP or REST, it defines the interface contract between AI clients and knowledge backends without prescribing specific technologies or database architectures.
+
 ## Core Principles
 
 ### Knowledge Philosophy
