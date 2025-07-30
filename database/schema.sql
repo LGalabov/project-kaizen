@@ -3,7 +3,7 @@
 
 CREATE EXTENSION IF NOT EXISTS "btree_gin";
 CREATE TYPE task_size_enum AS ENUM ('XS', 'S', 'M', 'L', 'XL');
-CREATE TYPE config_type_enum AS ENUM ('text', 'integer', 'float', 'boolean');
+CREATE TYPE config_type_enum AS ENUM ('text', 'integer', 'float', 'boolean', 'regconfig');
 
 -- =============================================================================
 -- CORE SCHEMA
@@ -136,13 +136,16 @@ CREATE OR REPLACE FUNCTION get_task_context(
 ) RETURNS TABLE (
     qualified_scope_name TEXT,
     knowledge_id BIGINT,
-    content TEXT
+    content TEXT,
+    relevance_rank REAL
 ) AS $$
 DECLARE
     ancestors_array BIGINT[];
     relevance_threshold DOUBLE PRECISION;
-    search_language TEXT;
+    search_language regconfig;
     max_results INTEGER;
+    context_weight REAL;
+    content_weight REAL;
 BEGIN
     SELECT sh.ancestors INTO ancestors_array
     FROM scopes s
@@ -151,13 +154,15 @@ BEGIN
     WHERE n.name || ':' || s.name = target_scope;
     
     IF ancestors_array IS NULL THEN
-        RAISE EXCEPTION 'Scope not found: %', target_scope;
+        RAISE EXCEPTION 'Scope "%" does not exist. Please verify the scope name format is "namespace:scope".', target_scope;
     END IF;
     
     -- Load configuration values
     relevance_threshold := get_config_float('search.relevance_threshold');
-    search_language := get_config_text('search.language');
+    search_language := get_config_regconfig('search.language');
     max_results := get_config_integer('search.max_results');
+    context_weight := get_config_float('search.context_weight');
+    content_weight := get_config_float('search.content_weight');
     
     RETURN QUERY
     WITH parsed_queries AS (
@@ -171,7 +176,7 @@ BEGIN
             k.qualified_scope_name,
             k.id,
             k.content,
-            ts_rank(k.search_vector, pq.parsed_query) as rank
+            ts_rank(ARRAY[0.1, 0.2, content_weight, context_weight], k.search_vector, pq.parsed_query) as rank
         FROM mv_active_knowledge_search k
         CROSS JOIN parsed_queries pq
         WHERE 
@@ -185,7 +190,8 @@ BEGIN
     SELECT 
         fr.qualified_scope_name,
         fr.id as knowledge_id,
-        fr.content
+        fr.content,
+        MAX(fr.rank) as relevance_rank
     FROM filtered_results fr
     GROUP BY fr.qualified_scope_name, fr.id, fr.content
     ORDER BY MAX(fr.rank) DESC
@@ -198,23 +204,28 @@ $$ LANGUAGE plpgsql;
 -- =============================================================================
 
 -- Internal helper function to get config with type validation
-CREATE OR REPLACE FUNCTION get_config_internal(config_key TEXT, expected_type config_type_enum DEFAULT NULL)
-RETURNS RECORD AS $$
+CREATE OR REPLACE FUNCTION get_config_internal(
+    config_key TEXT, 
+    expected_type config_type_enum DEFAULT NULL
+) RETURNS TEXT AS $$
 DECLARE
-    config_record RECORD;
+    config_value TEXT;
+    actual_type config_type_enum;
 BEGIN
-    SELECT value, value_type INTO config_record FROM config WHERE key = config_key;
-    IF config_record.value IS NULL THEN
-        RAISE EXCEPTION 'Configuration key not found: %', config_key;
+    SELECT value, value_type INTO config_value, actual_type 
+    FROM config WHERE key = config_key;
+    
+    IF config_value IS NULL THEN
+        RAISE EXCEPTION 'Configuration key "%" does not exist. Available keys can be found by querying the config table.', config_key;
     END IF;
     
     -- Type validation if expected_type is specified
-    IF expected_type IS NOT NULL AND config_record.value_type != expected_type THEN
-        RAISE EXCEPTION 'Configuration key % is type % but % was requested', 
-                       config_key, config_record.value_type, expected_type;
+    IF expected_type IS NOT NULL AND actual_type != expected_type THEN
+        RAISE EXCEPTION 'Configuration key "%" is of type % but % was requested. Use get_config_%() function instead.', 
+                       config_key, actual_type, expected_type, expected_type;
     END IF;
     
-    RETURN config_record;
+    RETURN config_value;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
@@ -222,28 +233,35 @@ $$ LANGUAGE plpgsql STABLE;
 CREATE OR REPLACE FUNCTION get_config_text(config_key TEXT) 
 RETURNS TEXT AS $$
 BEGIN
-    RETURN (get_config_internal(config_key)).value;
+    RETURN get_config_internal(config_key);
 END;
 $$ LANGUAGE plpgsql STABLE;
 
 CREATE OR REPLACE FUNCTION get_config_integer(config_key TEXT) 
 RETURNS INTEGER AS $$
 BEGIN
-    RETURN (get_config_internal(config_key, 'integer'::config_type_enum)).value::INTEGER;
+    RETURN get_config_internal(config_key, 'integer')::INTEGER;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
 CREATE OR REPLACE FUNCTION get_config_float(config_key TEXT) 
 RETURNS DOUBLE PRECISION AS $$
 BEGIN
-    RETURN (get_config_internal(config_key, 'float'::config_type_enum)).value::DOUBLE PRECISION;
+    RETURN get_config_internal(config_key, 'float')::DOUBLE PRECISION;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
 CREATE OR REPLACE FUNCTION get_config_boolean(config_key TEXT) 
 RETURNS BOOLEAN AS $$
 BEGIN
-    RETURN (get_config_internal(config_key, 'boolean'::config_type_enum)).value::BOOLEAN;
+    RETURN get_config_internal(config_key, 'boolean')::BOOLEAN;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION get_config_regconfig(config_key TEXT) 
+RETURNS regconfig AS $$
+BEGIN
+    RETURN get_config_internal(config_key, 'regconfig')::regconfig;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
@@ -256,7 +274,7 @@ BEGIN
     WHERE key = config_key;
     
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Configuration key not found: %. Cannot insert new keys.', config_key;
+        RAISE EXCEPTION 'Configuration key "%" does not exist and cannot be created. Only existing configuration values can be updated.', config_key;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -363,7 +381,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION prevent_circular_inheritance() RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.child_scope_id = ANY(calculate_scope_ancestors(NEW.parent_scope_id)) THEN
-        RAISE EXCEPTION 'Circular dependency detected: adding parent % to child % would create a cycle',
+        RAISE EXCEPTION 'Cannot add parent scope % to child scope % - this would create a circular dependency in the scope hierarchy.', 
             NEW.parent_scope_id, NEW.child_scope_id;
     END IF;
     RETURN NEW;
@@ -436,12 +454,14 @@ BEGIN
                 PERFORM NEW.value::DOUBLE PRECISION;
             WHEN 'boolean' THEN
                 PERFORM NEW.value::BOOLEAN;
+            WHEN 'regconfig' THEN
+                PERFORM NEW.value::regconfig;
         END CASE;
     EXCEPTION
         WHEN invalid_text_representation THEN
-            RAISE EXCEPTION 'Value "%" cannot be parsed as type %', NEW.value, NEW.value_type;
+            RAISE EXCEPTION 'Configuration value "%" is invalid for type %. Please provide a valid % value.', NEW.value, NEW.value_type, NEW.value_type;
         WHEN numeric_value_out_of_range THEN
-            RAISE EXCEPTION 'Value "%" is out of range for type %', NEW.value, NEW.value_type;
+            RAISE EXCEPTION 'Configuration value "%" is out of range for type %. Please provide a valid % value.', NEW.value, NEW.value_type, NEW.value_type;
     END;
     
     RETURN NEW;
@@ -451,19 +471,19 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION prevent_config_changes() RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        RAISE EXCEPTION 'Cannot insert new configuration keys. Only updates allowed.';
+        RAISE EXCEPTION 'Configuration keys cannot be inserted. Use update_config() to modify existing configuration values only.';
     ELSIF TG_OP = 'DELETE' THEN
-        RAISE EXCEPTION 'Cannot delete configuration keys. Only updates allowed.';
+        RAISE EXCEPTION 'Configuration keys cannot be deleted. Use update_config() to modify existing configuration values only.';
     ELSIF TG_OP = 'UPDATE' THEN
         -- Only allow changes to value and updated_at columns
         IF OLD.key != NEW.key THEN
-            RAISE EXCEPTION 'Cannot change configuration key. Only value updates allowed.';
+            RAISE EXCEPTION 'Configuration key cannot be modified. Use update_config() to change the value only.';
         END IF;
         IF OLD.value_type != NEW.value_type THEN
-            RAISE EXCEPTION 'Cannot change configuration value_type. Only value updates allowed.';
+            RAISE EXCEPTION 'Configuration value_type cannot be modified. Use update_config() to change the value only.';
         END IF;
         IF OLD.description != NEW.description THEN
-            RAISE EXCEPTION 'Cannot change configuration description. Only value updates allowed.';
+            RAISE EXCEPTION 'Configuration description cannot be modified. Use update_config() to change the value only.';
         END IF;
     END IF;
     RETURN NEW;
@@ -551,11 +571,15 @@ INSERT INTO namespaces (name, description)
 VALUES ('global', 'Universal knowledge accessible everywhere')
 ON CONFLICT (name) DO NOTHING;
 
--- Initial configuration values
+-- Initial configuration values (disable protection trigger for initial data)
+ALTER TABLE config DISABLE TRIGGER prevent_config_insert_delete_update;
 INSERT INTO config (key, value, value_type, description) VALUES
 ('search.relevance_threshold', '0.4', 'float', 'Minimum ts_rank score for search results'),
-('search.language', 'english', 'text', 'Full-text search language configuration'),
-('search.max_results', '50', 'integer', 'Maximum number of results per query');
+('search.language', 'english', 'regconfig', 'Full-text search language configuration'),
+('search.max_results', '50', 'integer', 'Maximum number of results per query'),
+('search.context_weight', '1.0', 'float', 'Weight for context field (A label) in search ranking'),
+('search.content_weight', '0.4', 'float', 'Weight for content field (B label) in search ranking');
+ALTER TABLE config ENABLE TRIGGER prevent_config_insert_delete_update;
 
 -- =============================================================================
 -- PERFORMANCE TUNING
@@ -583,7 +607,7 @@ COMMENT ON MATERIALIZED VIEW mv_active_knowledge_search IS 'Pre-joined, collisio
 
 COMMENT ON FUNCTION get_default_scope_id IS 'Returns default scope ID for any namespace';
 COMMENT ON FUNCTION get_global_default_scope_id IS 'Returns global:default scope ID';
-COMMENT ON FUNCTION get_task_context IS 'Multi-query knowledge retrieval with scope inheritance for MCP get_task_context action';
+COMMENT ON FUNCTION get_task_context IS 'Multi-query knowledge retrieval with scope inheritance and relevance ranking for MCP get_task_context action';
 COMMENT ON FUNCTION enforce_default_parent IS 'Ensures all scopes inherit from default scope';
 COMMENT ON FUNCTION prevent_global_namespace_deletion IS 'Prevents deletion of the global namespace';
 COMMENT ON FUNCTION prevent_default_scope_deletion IS 'Prevents direct deletion of default scopes while allowing cascade deletion';
@@ -593,6 +617,7 @@ COMMENT ON FUNCTION get_config_text IS 'Get configuration value as text - works 
 COMMENT ON FUNCTION get_config_integer IS 'Get configuration value as integer - validates type';
 COMMENT ON FUNCTION get_config_float IS 'Get configuration value as float - validates type';
 COMMENT ON FUNCTION get_config_boolean IS 'Get configuration value as boolean - validates type';
+COMMENT ON FUNCTION get_config_regconfig IS 'Get configuration value as regconfig - validates type';
 COMMENT ON FUNCTION update_config IS 'Update configuration value with type validation - only value changes allowed';
 COMMENT ON FUNCTION validate_config_type IS 'Validates configuration values match their declared types';
 COMMENT ON FUNCTION prevent_config_changes IS 'Prevents insert/delete and protects key/type/description from changes';
