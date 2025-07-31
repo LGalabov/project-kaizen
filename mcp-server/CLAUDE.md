@@ -192,6 +192,63 @@ except Exception as e:
     raise
 ```
 
+## FastMCP Server Implementation Patterns
+
+### Server Module Structure
+```python
+# ✅ Correct FastMCP server setup pattern
+from mcp.server.fastmcp import FastMCP
+from .utils.logging import get_logger
+
+# Import tool modules for side-effect registration
+from .tools import knowledge, namespace, scope
+
+mcp = FastMCP("project-kaizen")
+
+def setup_server() -> FastMCP:
+    logger = get_logger("server")
+    # Reference imports to satisfy type checker
+    tool_modules = [knowledge, namespace, scope]
+    return mcp
+```
+
+### Logging Function Reference
+**Available logging functions in `utils.logging`:**
+- `get_logger(name: str) -> BoundLogger` - Get structured logger instance
+- `log_mcp_tool_call(tool_name: str, **kwargs)` - Log MCP tool invocations  
+- `log_database_operation(operation: str, **kwargs)` - Log database operations
+- `log_error_with_context(error: Exception, context: dict)` - Log errors with context
+
+**❌ Wrong**: `log_server_event()` - This function does not exist
+
+### Reserved Parameter Names
+**Avoid these parameter names in structured logging:**
+- `event` - Reserved by structlog internals
+- `level` - Reserved by logging system
+- `timestamp` - Added automatically by processors
+
+**✅ Safe alternatives**: `operation`, `action`, `phase`, `step`
+
+### FastMCP Type Safety
+**❌ Wrong**: Accessing private attributes
+```python
+tool_count = len(mcp._tools)  # Type unknown, implementation detail
+```
+
+**✅ Correct**: Use explicit expectations
+```python
+expected_tool_count = 12  # 4 namespace + 3 scope + 5 knowledge
+```
+
+### Side-Effect Import Handling
+**Pattern for imports needed only for registration:**
+```python
+# Import and reference to satisfy type checker
+from .tools import knowledge, namespace, scope
+# Later in function:
+tool_modules = [knowledge, namespace, scope]  # Explicit reference
+```
+
 ## Validation Requirements
 
 - **Type Safety**: All files must pass `mypy --strict` with zero errors
