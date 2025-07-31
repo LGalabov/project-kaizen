@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: kaizen_knowledge
       POSTGRES_USER: kaizen_user
-      POSTGRES_PASSWORD: kaizen_passw0rd
+      POSTGRES_PASSWORD: kaizen_password
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5453:5432"
