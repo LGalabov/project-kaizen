@@ -4,6 +4,15 @@ This document provides concrete examples of how AI should behave with the MCP kn
 
 *Note: Knowledge enters the system through explicit MCP endpoint calls. The system uses namespace:scope hierarchy with full-text search and conflict resolution.*
 
+## Table of Contents
+- [Knowledge Storage Behaviors](#knowledge-storage-behaviors)
+- [Learning from Failure with Conflict Resolution](#learning-from-failure-with-conflict-resolution)
+- [Knowledge Retrieval Scenarios](#knowledge-retrieval-scenarios)
+- [Multi-Query Intelligence](#multi-query-intelligence)
+- [Advanced Conflict Resolution](#advanced-conflict-resolution)
+- [Teaching and Research Workflows](#teaching-and-research-workflows)
+- [Real-World Integration Patterns](#real-world-integration-patterns)
+
 ## Knowledge Storage Behaviors
 
 ### Teaching Session Example

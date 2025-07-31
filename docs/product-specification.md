@@ -1,5 +1,15 @@
 # Project Kaizen - Product Specification
 
+## Table of Contents
+- [Executive Summary](#executive-summary)
+- [Problem Statement](#problem-statement)
+- [Solution Vision](#solution-vision)
+- [Expected AI Behaviors](#expected-ai-behaviors)
+- [Success Metrics](#success-metrics)
+- [Target Market](#target-market)
+- [Implementation Approach](#implementation-approach)
+- [Business Value](#business-value)
+
 ## Executive Summary
 
 Project Kaizen transforms AI assistants from stateless tools into persistent, learning team members that accumulate project knowledge over time. By providing AI with the ability to remember instructions, context, decisions, and lessons learned, we enable continuous improvement in task execution and create true AI collaborators that understand projects as deeply as human team members.

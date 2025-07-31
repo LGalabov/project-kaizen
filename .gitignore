@@ -32,6 +32,9 @@ venv/
 .mcp/
 mcp-config.local.json
 
+# Claude Code
+.claude/
+
 # Backups
 *.dump
 backups/
