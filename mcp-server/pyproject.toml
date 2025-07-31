@@ -62,3 +62,8 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--cov=src/project_kaizen --cov-report=term-missing"
+
+[dependency-groups]
+dev = [
+    "asyncpg-stubs>=0.30.2",
+]

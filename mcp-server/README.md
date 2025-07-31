@@ -21,7 +21,7 @@ Model Context Protocol server providing AI tools with persistent organizational 
 uv sync
 
 # Run server
-uv run mcp-server
+uv run kaizen-mcp
 
 # Run tests
 uv run pytest
@@ -29,7 +29,7 @@ uv run pytest
 
 ### Project Structure
 ```
-src/mcp_server/
+src/project_kaizen/
 ├── main.py          # Entry point
 ├── server.py        # FastMCP server
 ├── database.py      # Database connections

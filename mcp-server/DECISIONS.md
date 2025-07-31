@@ -24,7 +24,7 @@ dev = [
 mcp-server/
 ├── pyproject.toml              # UV dependencies & config
 ├── uv.lock                     # Dependency lockfile
-├── src/mcp_server/
+├── src/project_kaizen/
 │   ├── __init__.py
 │   ├── main.py                 # Entry point
 │   ├── server.py               # FastMCP server setup
@@ -80,3 +80,44 @@ async def get_task_context(
 4. **Modern Python**: Python 3.13+, type hints, Pydantic validation
 5. **Production Ready**: Structured logging, error handling, configuration
 6. **MCP Compliance**: Must match exact specs in protocol documentation
+7. **Type Safety**: Full type coverage with proper stubs for all dependencies
+
+## Type Safety & IDE Support
+
+### Python Type Stubs
+For libraries without built-in type information, install separate stub packages:
+
+```toml
+[dependency-groups]
+dev = [
+    "asyncpg-stubs>=0.30.2",  # Type stubs for asyncpg
+]
+```
+
+**Why stubs matter:**
+- Enable full IDE autocomplete and error detection (Pylance, mypy)
+- Catch type errors at development time vs runtime
+- Provide accurate function signatures and return types
+- Similar to TypeScript's `@types/*` packages
+
+### Type Checking Tools
+- **mypy**: Command-line type checker with strict mode
+- **Pylance**: VSCode language server with real-time type checking
+- **ruff**: Fast linting with type-aware rules
+
+### Type Safety Patterns
+```python
+# Generic type annotations for pools
+self._pool: Pool[asyncpg.Record] | None = None
+
+# Type narrowing with assertions
+assert self._pool is not None  # For type checker
+
+# Explicit type casting when needed
+return cast(structlog.stdlib.BoundLogger, structlog.get_logger(name))
+```
+
+**Validation Process:**
+1. `uv run mypy src/ --strict` - Full type checking
+2. `uv run ruff check src/ --fix` - Linting with auto-fixes
+3. IDE (Pylance) - Real-time type validation during development
