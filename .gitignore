@@ -27,3 +27,6 @@ mcp-config.local.json
 # Backups
 *.dump
 backups/
+
+# Examples
+examples/
