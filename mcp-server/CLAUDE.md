@@ -1,259 +1,78 @@
-# Project Kaizen MCP Server - Claude Instructions
+# Project Kaizen MCP Server - AI Instructions
 
-MCP server-specific development guidelines and type safety requirements.
+## Quick Reference Links
+- 📐 **Architecture**: [docs/architecture.md](docs/architecture.md) - FastMCP patterns + server structure
+- 🔍 **Examples**: [docs/fastmcp-examples.md](docs/fastmcp-examples.md) - Proven project layouts
+- ⚠️ **Pitfalls**: [docs/pitfalls.md](docs/pitfalls.md) - Known issues + solutions
+- 🛡️ **Type Safety**: [docs/type-safety.md](docs/type-safety.md) - mypy + validation patterns
+- 🗃️ **Database**: [docs/database.md](docs/database.md) - PostgreSQL + AsyncPG decisions
+- 🔧 **Tooling**: [docs/tooling.md](docs/tooling.md) - Development workflow
 
-## Python Type Safety Best Practices
+## Project Overview
+Project Kaizen is an MCP server that elevates transient AI interactions into a persistent foundation of organizational knowledge.
 
-**Context**: During CHUNK 4 implementation, we encountered multiple type checking issues that required systematic fixes. These guidelines prevent similar issues in future development.
+## Git Commit Messages
 
-### 1. Explicit Type Annotations
+Follow semantic versioning (semver) format for all commits:
 
-Always provide explicit type annotations for complex data structures:
-
-```python
-# ❌ Bad - Type checker can't infer
-namespaces = {}
-params = []
-set_clauses = []
-
-# ✅ Good - Explicit type annotations  
-namespaces: dict[str, NamespaceInfo] = {}
-params: list[Any] = []
-set_clauses: list[str] = []
+```
+<type>: <description>
+[optional bullet points]
 ```
 
-**Why**: Prevents "partially unknown" type errors and improves IDE autocomplete.
+**Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
-### 2. Type Stub Management
+**Rules**:
+- Use present tense ("add feature" not "added feature")
+- Maximum 5 lines total per commit message
+- No empty lines between lines
+- Bullet points allowed for listing changes
+- No Claude signatures or attribution messages
+- Be concise and descriptive
 
-**Required Development Dependencies:**
-```toml
-[dependency-groups]
-dev = [
-    "asyncpg-stubs>=0.30.2",  # Type stubs for asyncpg
-    # Add other stub packages as needed
-]
+**Example**:
+```
+feat: add knowledge persistence to Neo4j
+- Implement node creation for knowledge entries
+- Add relationship mapping between concepts
+- Configure database connection pooling
 ```
 
-**Installation Process:**
-- Install type stubs for all third-party libraries during initial setup
-- Document stub requirements in project documentation
-- Update stubs when upgrading corresponding runtime libraries
+## Code Formatting Rules
 
-### 3. Model Field Validation
+- All files must end with a newline character
+- Ensure proper file termination when creating or editing files
 
-**Never assume model fields exist without verification:**
+## Pre-Commit Validation
 
-```python
-# ❌ Wrong - Assumes field exists
-if hasattr(input, 'task_size') and input.task_size:
-    task_size_value = input.task_size.value
+Before any `git commit` or `git push`, AI must verify:
 
-# ✅ Correct - Check model definition first
-# Only reference fields that actually exist in the Pydantic model
-```
+- **File endings**: All changed files that will be committed must end with a trailing newline character
+- **Best practices compliance**: Check staged files follow proper file termination standards
+- **Validation process**: Use git status/diff to identify changed files, then verify each ends with newline
 
-**Process:**
-1. Always check actual Pydantic model definitions
-2. Cross-reference with MCP protocol specifications
-3. Validate field existence before runtime checks
+**Implementation**: Run validation check on all staged files before executing commit commands.
 
-### 4. AsyncPG Connection Patterns
+## Development Guidelines
 
-**Correct database connection usage:**
+**For detailed implementation patterns, refer to the documentation links above.**
 
-```python
-# ❌ Wrong - get_connection() returns AsyncGenerator
-async with get_connection() as conn:
+Key principles:
+- Follow FastMCP single instance pattern (see Architecture docs)
+- Use strict type checking with zero tolerance for errors
+- Validate all database operations and nullable results
+- Implement proper error handling with structured logging
 
-# ✅ Correct - Use db_manager.acquire()
-async with db_manager.acquire() as conn:
-```
-
-**Database Query Validation:**
-```python
-# ❌ Dangerous - fetchrow() can return None
-result = await conn.fetchrow(query, param)
-value = result["id"]  # Potential error
-
-# ✅ Safe - Always validate nullable results
-result = await conn.fetchrow(query, param)
-if not result:
-    raise ValueError("Query returned no results")
-value = result["id"]
-```
-
-### 5. Type Checking Workflow
-
-**Required validation sequence before any commit:**
-
+**Pre-commit Requirements:**
 ```bash
-# 1. Strict type checking (must pass with zero errors)
-uv run mypy src/ --strict
-
-# 2. Code formatting and linting (auto-fix issues)
-uv run ruff check src/ --fix
-
-# 3. Manual IDE verification (Pylance warnings)
-# Check for any remaining type warnings in VSCode
+uv run mypy src/ --strict      # Must pass with zero errors
+uv run ruff check src/ --fix   # Auto-fix linting issues
 ```
 
-**Zero-tolerance policy**: All type errors must be resolved before committing.
+## Communication Style
 
-### 6. Dynamic Query Building
-
-**Safe parameter handling:**
-
-```python
-# Build dynamic queries with proper type safety
-set_clauses: list[str] = []
-params: list[Any] = []
-param_count = 0
-
-if input.new_name:
-    param_count += 1
-    set_clauses.append(f"name = ${param_count}")
-    params.append(input.new_name)
-
-# Always validate non-empty clauses
-if not set_clauses:
-    raise ValueError("No fields to update")
-```
-
-### 7. Error Prevention Checklist
-
-**Before implementing any database operation:**
-- [ ] Check Pydantic model definitions for actual fields
-- [ ] Validate all fetchrow() results before indexing
-- [ ] Use explicit type annotations for collections
-- [ ] Install and verify type stubs for external libraries
-- [ ] Test with `mypy --strict` during development
-- [ ] Resolve all Pylance warnings in IDE
-
-### 8. Common Type Issues and Solutions
-
-**Issue**: `dict[Unknown, Unknown]` type errors
-**Solution**: Add explicit type annotation: `results: dict[str, dict[str, str]] = {}`
-
-**Issue**: `Type of "append" is partially unknown`
-**Solution**: Add list type annotation: `validated: list[str] = []`
-
-**Issue**: `Stub file not found for "library"`
-**Solution**: Install type stubs: `uv add library-stubs --group dev`
-
-**Issue**: `Value of type "Record | None" is not indexable`
-**Solution**: Validate result before access:
-```python
-result = await conn.fetchrow(query)
-if not result:
-    raise ValueError("No results found")
-value = result["field"]
-```
-
-## MCP Tool Implementation Standards
-
-### FastMCP Decorator Pattern
-```python
-from mcp.server.fastmcp import FastMCP
-
-mcp = FastMCP("project-kaizen")
-
-@mcp.tool()
-async def tool_name(input: InputModel) -> OutputModel:
-    """Tool description matching MCP protocol."""
-    # Implementation with proper error handling
-```
-
-### Database Integration Pattern
-```python
-async with db_manager.acquire() as conn:
-    # Direct SQL execution with proper validation
-    result = await conn.fetchrow(query, *params)
-    if not result:
-        raise ValueError("Operation failed")
-    return ProcessedOutput(...)
-```
-
-### Logging Integration
-```python
-from ..utils.logging import log_mcp_tool_call, log_database_operation, log_error_with_context
-
-# Log tool invocation
-log_mcp_tool_call("tool_name", param1=value1, param2=value2)
-
-# Log database operations  
-log_database_operation("SELECT", query="operation_name", params=params)
-
-# Log errors with context
-try:
-    # Operation
-except Exception as e:
-    log_error_with_context(e, {"tool": "tool_name", "input": input.model_dump()})
-    raise
-```
-
-## FastMCP Server Implementation Patterns
-
-### Server Module Structure
-```python
-# ✅ Correct FastMCP server setup pattern
-from mcp.server.fastmcp import FastMCP
-from .utils.logging import get_logger
-
-# Import tool modules for side-effect registration
-from .tools import knowledge, namespace, scope
-
-mcp = FastMCP("project-kaizen")
-
-def setup_server() -> FastMCP:
-    logger = get_logger("server")
-    # Reference imports to satisfy type checker
-    tool_modules = [knowledge, namespace, scope]
-    return mcp
-```
-
-### Logging Function Reference
-**Available logging functions in `utils.logging`:**
-- `get_logger(name: str) -> BoundLogger` - Get structured logger instance
-- `log_mcp_tool_call(tool_name: str, **kwargs)` - Log MCP tool invocations  
-- `log_database_operation(operation: str, **kwargs)` - Log database operations
-- `log_error_with_context(error: Exception, context: dict)` - Log errors with context
-
-**❌ Wrong**: `log_server_event()` - This function does not exist
-
-### Reserved Parameter Names
-**Avoid these parameter names in structured logging:**
-- `event` - Reserved by structlog internals
-- `level` - Reserved by logging system
-- `timestamp` - Added automatically by processors
-
-**✅ Safe alternatives**: `operation`, `action`, `phase`, `step`
-
-### FastMCP Type Safety
-**❌ Wrong**: Accessing private attributes
-```python
-tool_count = len(mcp._tools)  # Type unknown, implementation detail
-```
-
-**✅ Correct**: Use explicit expectations
-```python
-expected_tool_count = 12  # 4 namespace + 3 scope + 5 knowledge
-```
-
-### Side-Effect Import Handling
-**Pattern for imports needed only for registration:**
-```python
-# Import and reference to satisfy type checker
-from .tools import knowledge, namespace, scope
-# Later in function:
-tool_modules = [knowledge, namespace, scope]  # Explicit reference
-```
-
-## Validation Requirements
-
-- **Type Safety**: All files must pass `mypy --strict` with zero errors
-- **Code Quality**: All files must pass `ruff check` with zero issues
-- **IDE Compliance**: Address all Pylance warnings (not just mypy)
-- **Model Validation**: Cross-reference all Pydantic models with MCP protocol
-- **Database Safety**: Validate all nullable database results before use
-- **Error Handling**: Comprehensive exception handling with structured logging
+- Keep terminal outputs concise and conversational
+- Break large changes into small, understandable pieces
+- Use output tokens efficiently - avoid verbose explanations
+- Present information in digestible chunks
+- Focus on what matters most to the user's immediate needs
