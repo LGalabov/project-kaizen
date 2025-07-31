@@ -34,6 +34,16 @@ feat: add knowledge persistence to Neo4j
 - All files must end with a newline character
 - Ensure proper file termination when creating or editing files
 
+## Pre-Commit Validation
+
+Before any `git commit` or `git push`, AI must verify:
+
+- **File endings**: All changed files that will be committed must end with a trailing newline character
+- **Best practices compliance**: Check staged files follow proper file termination standards
+- **Validation process**: Use git status/diff to identify changed files, then verify each ends with newline
+
+**Implementation**: Run validation check on all staged files before executing commit commands.
+
 ## Complex Task Planning Protocol
 
 For complex, multi-step tasks that involve significant changes or architectural decisions:

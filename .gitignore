@@ -1,10 +1,5 @@
-# Dependencies
-node_modules/
+# Logs
 *.log
-
-# Build
-dist/
-build/
 
 # Environment
 .env
@@ -21,12 +16,6 @@ Thumbs.db
 # Database
 data/
 *.db
-
-# Python
-__pycache__/
-*.py[cod]
-venv/
-.venv/
 
 # MCP
 .mcp/
