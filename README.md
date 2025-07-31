@@ -36,6 +36,7 @@ Day 3: AI prevents previous mistakes, suggests improvements
 - **📋 [Product Specification](./docs/product-specification.md)** - Vision, use cases, and business value
 - **📖 [Behavior Examples](./docs/behavior-examples.md)** - Real-world usage scenarios and workflows  
 - **🔧 [MCP Protocol & Actions](./docs/mcp-protocol+actions.md)** - Complete technical specification
+- **🎯 [Search Optimization Guide](./docs/search-optimization-guide.md)** - Best practices for knowledge creation and AI query formation
 
 ## Who It's For
 
