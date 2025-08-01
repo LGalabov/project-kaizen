@@ -1,4 +1,4 @@
-"""Database connection management for Project Kaizen MCP server."""
+"""Database operations for Project Kaizen MCP server."""
 
 import asyncio
 from collections.abc import AsyncGenerator
@@ -9,8 +9,8 @@ import structlog
 from asyncpg import Pool
 from asyncpg.pool import PoolConnectionProxy
 
-from .config import settings
-from .exceptions import DatabaseError
+from ..settings import settings
+from ..exceptions import DatabaseError
 
 logger = structlog.get_logger(__name__)
 
@@ -90,26 +90,38 @@ class DatabaseManager:
         return self._pool is not None
 
 
-# Global database manager instance
-db_manager = DatabaseManager()
+# Global database manager instance - lazy initialization following atproto pattern
+_db_manager: DatabaseManager | None = None
+
+
+def get_db_manager() -> DatabaseManager:
+    """Get or create database manager with lazy initialization."""
+    global _db_manager
+    if _db_manager is None:
+        _db_manager = DatabaseManager()
+    return _db_manager
 
 
 async def get_connection() -> AsyncGenerator[PoolConnectionProxy]:
     """Get database connection for MCP tool operations."""
+    db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
         yield conn
 
 
 async def initialize_database() -> None:
     """Initialize database connection pool."""
+    db_manager = get_db_manager()
     await db_manager.initialize()
 
 
 async def close_database() -> None:
     """Close database connection pool."""
+    db_manager = get_db_manager()
     await db_manager.close()
 
 
 async def health_check() -> bool:
     """Check database health."""
+    db_manager = get_db_manager()
     return await db_manager.health_check()

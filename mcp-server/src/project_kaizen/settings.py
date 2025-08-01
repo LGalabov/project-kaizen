@@ -12,7 +12,7 @@ class DatabaseSettings(BaseSettings):
     password: str = Field(default="kaizen_password", description="Database password")
     
     min_connections: int = Field(default=1, description="Minimum connection pool size")
-    max_connections: int = Field(default=10, description="Maximum connection pool size")
+    max_connections: int = Field(default=5, description="Maximum connection pool size")
     
     @property
     def dsn(self) -> str:

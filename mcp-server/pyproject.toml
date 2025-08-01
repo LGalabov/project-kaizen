@@ -27,7 +27,7 @@ dev = [
 ]
 
 [project.scripts]
-kaizen-mcp = "project_kaizen.main:run"
+kaizen-mcp = "project_kaizen.__main__:main"
 
 [tool.uv]
 dev-dependencies = [

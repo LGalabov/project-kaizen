@@ -40,10 +40,21 @@ async def main():
     mcp.run()
 
 # ✅ Correct: Initialize lazily in business logic
+# server.py
 @mcp.tool
-async def write_knowledge(input: WriteKnowledgeInput):
-    async with db_manager.acquire() as conn:  # Lazy initialization
-        # Tool implementation
+async def write_knowledge(input: WriteKnowledgeInput) -> WriteKnowledgeOutput:
+    try:
+        knowledge_id = await knowledge_ops.create_knowledge_entry(input.scope, input.content, input.context)
+        return WriteKnowledgeOutput(id=knowledge_id, scope=input.scope)
+    except Exception as e:
+        log_error_with_context(e, {"tool": "write_knowledge", "input": input.model_dump()})
+        raise
+
+# core/knowledge_ops.py - Lazy DB initialization
+async def create_knowledge_entry(scope: str, content: str, context: str) -> str:
+    db_manager = get_db_manager()  # Lazy initialization
+    async with db_manager.acquire() as conn:
+        # Database operations
 ```
 
 ## Multiple FastMCP Instances
@@ -69,40 +80,42 @@ mcp = FastMCP("project-kaizen")
 
 ### ✅ Solution
 ```python
-# server.py - Single global instance
+# server.py - Single global instance with ALL tools
 mcp = FastMCP("project-kaizen")
 
-# tools/knowledge.py - Import global instance
-from ..server import mcp
-
+# All tools defined directly in server.py
 @mcp.tool
-async def write_knowledge(input: WriteKnowledgeInput):
-    # Implementation
+async def write_knowledge(input: WriteKnowledgeInput) -> WriteKnowledgeOutput:
+    # Direct implementation, no separate tool files
+    result = await knowledge_ops.create_knowledge_entry(input.scope, input.content, input.context)
+    return WriteKnowledgeOutput(id=result, scope=input.scope)
+
+# No separate tools/ directory - all 12 tools in server.py
 ```
 
 ## Import Side-Effects & Type Checking
 
 ### The Problem
 ```python
-# ❌ Type checker flags "unused imports"
+# ❌ Old pattern with separate tool modules
 from .tools import knowledge, namespace, scope  # "Import not accessed"
 ```
 
-### Why It Happens
-- Imports are needed for side-effects (tool registration)
+### Why It Happened
+- Imports were needed for side-effects (tool registration)
 - Type checkers don't understand decorator registration patterns
-- `# noqa: F401` comments don't work consistently
+- Complex module importing for tool discovery
 
 ### ✅ Solution
 ```python
-# Explicitly reference imports to satisfy type checker
-from .tools import knowledge, namespace, scope
+# server.py - All tools defined directly, no side-effect imports needed
+mcp = FastMCP("project-kaizen")
 
-def setup_server() -> FastMCP:
-    # Reference imported modules
-    tool_modules = [knowledge, namespace, scope]
-    logger.info("Loaded tool modules", count=len(tool_modules))
-    return mcp
+@mcp.tool
+async def write_knowledge(input: WriteKnowledgeInput) -> WriteKnowledgeOutput:
+    # Direct tool definition - no complex imports
+
+# All 12 tools defined in same file - no import side-effects
 ```
 
 ## Reserved Parameter Names in Logging
@@ -204,9 +217,18 @@ def run():  # Function name mismatch
 [project.scripts]
 kaizen-mcp = "project_kaizen.main:run"  # Correct function name
 
-# Or use standard __main__.py pattern
+# ✅ Standard __main__.py pattern
 [project.scripts]
-kaizen-mcp = "project_kaizen.__main__:main"  # Standard pattern
+kaizen-mcp = "project_kaizen.__main__:main"  # FastMCP standard pattern
+
+# __main__.py
+from project_kaizen.server import mcp
+
+def main() -> None:
+    mcp.run()
+
+if __name__ == "__main__":
+    main()
 ```
 
 ## Type Safety Workflow Violations

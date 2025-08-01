@@ -16,41 +16,68 @@
 
 ## Connection Management Strategy
 
-### Connection Pooling Pattern
+### Lazy Connection Pooling Pattern
 ```python
-# utils/database.py
+# core/database_ops.py - Lazy initialization pattern
+_db_manager: DatabaseManager | None = None
+
+def get_db_manager() -> DatabaseManager:
+    """Get or create database manager with lazy initialization."""
+    global _db_manager
+    if _db_manager is None:
+        _db_manager = DatabaseManager()
+    return _db_manager
+
 class DatabaseManager:
     def __init__(self):
         self._pool: asyncpg.Pool | None = None
+        self._lock = asyncio.Lock()
     
     async def initialize(self) -> None:
-        self._pool = await asyncpg.create_pool(
-            host=settings.database.host,
-            port=settings.database.port,
-            database=settings.database.database,
-            user=settings.database.user,
-            password=settings.database.password,
-            min_size=settings.database.min_connections,
-            max_size=settings.database.max_connections
-        )
+        if self._pool is not None:
+            return
+        
+        async with self._lock:
+            if self._pool is not None:
+                return
+            
+            self._pool = await asyncpg.create_pool(
+                dsn=settings.database.dsn,
+                min_size=settings.database.min_connections,  # 1
+                max_size=settings.database.max_connections,  # 5
+                command_timeout=30,
+            )
     
+    @asynccontextmanager
     async def acquire(self):
-        if not self._pool:
+        if self._pool is None:
             await self.initialize()
-        return self._pool.acquire()
-
-db_manager = DatabaseManager()  # Global instance
+        
+        async with self._pool.acquire() as connection:
+            yield connection
 ```
 
 ### Usage in MCP Tools
 ```python
+# server.py - MCP tool pattern
 @mcp.tool
-async def write_knowledge(input: WriteKnowledgeInput):
+async def write_knowledge(input: WriteKnowledgeInput) -> WriteKnowledgeOutput:
+    try:
+        knowledge_id = await knowledge_ops.create_knowledge_entry(input.scope, input.content, input.context)
+        return WriteKnowledgeOutput(id=knowledge_id, scope=input.scope)
+    except Exception as e:
+        log_error_with_context(e, {"tool": "write_knowledge", "input": input.model_dump()})
+        raise
+
+# core/knowledge_ops.py - Business logic with lazy DB
+async def create_knowledge_entry(scope: str, content: str, context: str) -> str:
+    db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
+        # Database operation
         result = await conn.fetchrow(query, *params)
         if not result:
             raise ValueError("Operation failed")
-        return WriteKnowledgeOutput(id=str(result["id"]))
+        return str(result["id"])
 ```
 
 ## Transaction vs Autocommit Decision
@@ -157,15 +184,15 @@ except Exception as e:
 
 ### Database Settings
 ```python
-# config.py
+# settings.py
 class DatabaseConfig(BaseModel):
     host: str
     port: int = 5432
     database: str
     user: str
     password: str
-    min_connections: int = 1
-    max_connections: int = 5
+    min_connections: int = Field(default=1, description="Minimum connection pool size")
+    max_connections: int = Field(default=5, description="Maximum connection pool size")
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=[".env"])
@@ -187,8 +214,8 @@ DATABASE__MAX_CONNECTIONS=5
 ## Performance Considerations
 
 ### Connection Pool Sizing
-- **Min Connections**: 1 (for development)
-- **Max Connections**: 5 (sufficient for MCP server)
+- **Min Connections**: 1 (optimal for MCP server lazy loading)
+- **Max Connections**: 5 (sufficient for concurrent MCP client load)
 - **Production**: Scale based on concurrent MCP client load
 
 ### Query Optimization

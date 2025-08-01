@@ -23,7 +23,7 @@ Follow semantic versioning (semver) format for all commits:
 
 **Example**:
 ```
-feat: add knowledge persistence to Neo4j
+feat: add knowledge persistence to PostgreSQL
 - Implement node creation for knowledge entries
 - Add relationship mapping between concepts
 - Configure database connection pooling
@@ -86,3 +86,7 @@ For complex, multi-step tasks that involve significant changes or architectural 
 - Use output tokens efficiently - avoid verbose explanations
 - Present information in digestible chunks
 - Focus on what matters most to the user's immediate needs
+
+## MCP Server Development
+
+For MCP server specific development, see: `mcp-server/CLAUDE.md`
