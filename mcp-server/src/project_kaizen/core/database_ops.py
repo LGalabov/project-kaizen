@@ -9,8 +9,8 @@ import structlog
 from asyncpg import Pool
 from asyncpg.pool import PoolConnectionProxy
 
-from ..settings import settings
 from ..exceptions import DatabaseError
+from ..settings import settings
 
 logger = structlog.get_logger(__name__)
 
@@ -23,30 +23,40 @@ class DatabaseManager:
         self._lock = asyncio.Lock()
 
     async def initialize(self) -> None:
-        """Initialize database connection pool."""
+        """Initialize database connection pool with thread-safe lazy loading."""
         if self._pool is not None:
             return
 
-        async with self._lock:
-            if self._pool is not None:
-                return
+        await self._initialize_with_lock()
 
-            try:
-                logger.info("Initializing database connection pool", dsn_host=settings.database.host)
-                self._pool = await asyncpg.create_pool(
-                    dsn=settings.database.dsn,
-                    min_size=settings.database.min_connections,
-                    max_size=settings.database.max_connections,
-                    command_timeout=30,
-                )
-                logger.info(
-                    "Database pool initialized successfully",
-                    min_connections=settings.database.min_connections,
-                    max_connections=settings.database.max_connections,
-                )
-            except Exception as e:
-                logger.error("Failed to initialize database pool", error=str(e))
-                raise DatabaseError(f"Database initialization failed: {e}") from e
+    async def _initialize_with_lock(self) -> None:
+        """Initialize the pool while holding the lock."""
+        async with self._lock:
+            # Double-check pattern: pool may have been created while waiting for lock
+            if self._pool is None:
+                await self._create_pool()
+
+    async def _create_pool(self) -> None:
+        """Create the database connection pool."""
+        try:
+            logger.info(
+                "Initializing database connection pool",
+                dsn_host=settings.database.host,
+            )
+            self._pool = await asyncpg.create_pool(
+                dsn=settings.database.dsn,
+                min_size=settings.database.min_connections,
+                max_size=settings.database.max_connections,
+                command_timeout=30,
+            )
+            logger.info(
+                "Database pool initialized successfully",
+                min_connections=settings.database.min_connections,
+                max_connections=settings.database.max_connections,
+            )
+        except Exception as e:
+            logger.error("Failed to initialize database pool", error=str(e))
+            raise DatabaseError(f"Database initialization failed: {e}") from e
 
     async def close(self) -> None:
         """Close database connection pool."""

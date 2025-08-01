@@ -1,10 +1,14 @@
 """Scope management business logic."""
 
-from .database_ops import get_db_manager
+from typing import Any
+
 from ..utils.logging import log_database_operation
+from .database_ops import get_db_manager
 
 
-async def create_scope(namespace: str, scope_name: str, description: str, parents: list[str]) -> dict[str, any]:
+async def create_scope(
+    namespace: str, scope_name: str, description: str, parents: list[str]
+) -> dict[str, Any]:
     """Create new scope within namespace with automatic 'default' parent inheritance."""
     db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
@@ -24,15 +28,21 @@ async def create_scope(namespace: str, scope_name: str, description: str, parent
             RETURNING id
         """
 
-        log_database_operation("INSERT", query="create_scope", params=[namespace_id, scope_name, description])
-        scope_result = await conn.fetchrow(scope_query, namespace_id, scope_name, description)
+        log_database_operation(
+            "INSERT",
+            query="create_scope",
+            params=[namespace_id, scope_name, description],
+        )
+        scope_result = await conn.fetchrow(
+            scope_query, namespace_id, scope_name, description
+        )
 
         if not scope_result:
             raise ValueError(f"Failed to create scope '{namespace}:{scope_name}'")
 
         scope_id = scope_result["id"]
 
-        # Ensure default parent is included
+        # Auto-add default parent if not specified
         all_parents = list(parents)
         default_parent = f"{namespace}:default"
         if default_parent not in all_parents:
@@ -49,7 +59,9 @@ async def create_scope(namespace: str, scope_name: str, description: str, parent
                 WHERE n.name = $1 AND s.name = $2
             """
 
-            parent_result = await conn.fetchrow(parent_query, parent_namespace, parent_name)
+            parent_result = await conn.fetchrow(
+                parent_query, parent_namespace, parent_name
+            )
 
             if not parent_result:
                 raise ValueError(f"Parent scope '{parent_scope}' not found")
@@ -68,11 +80,16 @@ async def create_scope(namespace: str, scope_name: str, description: str, parent
         return {
             "scope": f"{namespace}:{scope_name}",
             "description": description,
-            "parents": all_parents
+            "parents": all_parents,
         }
 
 
-async def update_scope(scope: str, new_scope: str | None = None, description: str | None = None, parents: list[str] | None = None) -> dict[str, any]:
+async def update_scope(
+    scope: str,
+    new_scope: str | None = None,
+    description: str | None = None,
+    parents: list[str] | None = None,
+) -> dict[str, Any]:
     """Update scope name, description, and parent relationships with automatic reference updating."""
     db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
@@ -87,7 +104,9 @@ async def update_scope(scope: str, new_scope: str | None = None, description: st
             WHERE n.name = $1 AND s.name = $2
         """
 
-        scope_result = await conn.fetchrow(scope_query, current_namespace, current_scope_name)
+        scope_result = await conn.fetchrow(
+            scope_query, current_namespace, current_scope_name
+        )
 
         if not scope_result:
             raise ValueError(f"Scope '{scope}' not found")
@@ -148,7 +167,9 @@ async def update_scope(scope: str, new_scope: str | None = None, description: st
                     WHERE n.name = $1 AND s.name = $2
                 """
 
-                parent_result = await conn.fetchrow(parent_query, parent_namespace, parent_name)
+                parent_result = await conn.fetchrow(
+                    parent_query, parent_namespace, parent_name
+                )
 
                 if not parent_result:
                     raise ValueError(f"Parent scope '{parent_scope}' not found")
@@ -178,16 +199,18 @@ async def update_scope(scope: str, new_scope: str | None = None, description: st
             parent_rows = await conn.fetch(parents_query, scope_id)
             final_parents = [row["parent_scope"] for row in parent_rows]
 
-        log_database_operation("UPDATE", query="update_scope_complete", params=[scope_id])
+        log_database_operation(
+            "UPDATE", query="update_scope_complete", params=[scope_id]
+        )
 
         return {
             "scope": final_scope_name,
             "description": final_description,
-            "parents": final_parents
+            "parents": final_parents,
         }
 
 
-async def delete_scope(scope: str) -> dict[str, any]:
+async def delete_scope(scope: str) -> dict[str, Any]:
     """Remove scope and all associated knowledge entries."""
     db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
@@ -203,7 +226,9 @@ async def delete_scope(scope: str) -> dict[str, any]:
             WHERE n.name = $1 AND s.name = $2
         """
 
-        log_database_operation("SELECT", query="delete_scope_info", params=[namespace_name, scope_name])
+        log_database_operation(
+            "SELECT", query="delete_scope_info", params=[namespace_name, scope_name]
+        )
         scope_result = await conn.fetchrow(scope_query, namespace_name, scope_name)
 
         if not scope_result:
@@ -224,7 +249,4 @@ async def delete_scope(scope: str) -> dict[str, any]:
         if not deleted_result:
             raise ValueError(f"Failed to delete scope '{scope}'")
 
-        return {
-            "scope": scope,
-            "knowledge_deleted": knowledge_count
-        }
+        return {"scope": scope, "knowledge_deleted": knowledge_count}

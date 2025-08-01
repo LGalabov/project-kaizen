@@ -29,7 +29,7 @@ FastMCP server providing AI tools with persistent organizational knowledge manag
 uv sync
 
 # Run server (starts immediately, no pre-initialization)
-uv run kaizen-mcp
+uv run project-kaizen-mcp
 
 # Verify - should discover 12 tools without asyncio conflicts
 # Server output: "FastMCP server started" (no complex lifecycle messages)

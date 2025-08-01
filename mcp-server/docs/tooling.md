@@ -34,7 +34,7 @@ dev = [
 ]
 
 [project.scripts]
-kaizen-mcp = "project_kaizen.__main__:main"
+project-kaizen-mcp = "project_kaizen.__main__:main"
 ```
 
 ### Common Commands
@@ -49,7 +49,7 @@ uv add fastmcp
 uv add --group dev pytest
 
 # Run application
-uv run kaizen-mcp
+uv run project-kaizen-mcp
 
 # Run tests
 uv run pytest
@@ -198,7 +198,7 @@ async def db_connection():
 @pytest.fixture
 def mock_settings(monkeypatch):
     """Mock settings for testing."""
-    monkeypatch.setenv("DATABASE__DATABASE", "test_kaizen")
+    monkeypatch.setenv("DATABASE__DATABASE", "test_kz_knowledge")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
 ```
 
@@ -291,7 +291,7 @@ RUN uv sync --frozen --no-dev
 COPY src/ ./src/
 
 # Set entry point
-CMD ["uv", "run", "kaizen-mcp"]
+CMD ["uv", "run", "project-kaizen-mcp"]
 ```
 
 ### Environment Management

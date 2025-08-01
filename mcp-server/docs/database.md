@@ -204,9 +204,9 @@ class Settings(BaseSettings):
 # .env
 DATABASE__HOST=localhost
 DATABASE__PORT=5453
-DATABASE__DATABASE=kaizen_knowledge
-DATABASE__USER=kaizen_user
-DATABASE__PASSWORD=kaizen_password
+DATABASE__DATABASE=kz_knowledge
+DATABASE__USER=kz_user
+DATABASE__PASSWORD=kz_password
 DATABASE__MIN_CONNECTIONS=1
 DATABASE__MAX_CONNECTIONS=5
 ```

@@ -9,10 +9,11 @@ from .scope import validate_scope_format
 
 class TaskSize(str, Enum):
     """Task complexity levels for knowledge filtering."""
+
     XS = "XS"  # Quick fixes
-    S = "S"    # Small features
-    M = "M"    # Medium projects
-    L = "L"    # Large implementations
+    S = "S"  # Small features
+    M = "M"  # Medium projects
+    L = "L"  # Large implementations
     XL = "XL"  # Architectural changes
 
 
@@ -22,7 +23,9 @@ def validate_knowledge_id(knowledge_id: str) -> str:
         raise ValueError("Knowledge ID must be at least 8 characters")
 
     if not knowledge_id.replace("-", "").replace("_", "").isalnum():
-        raise ValueError("Knowledge ID must contain only alphanumeric, hyphens, underscores")
+        raise ValueError(
+            "Knowledge ID must contain only alphanumeric, hyphens, underscores"
+        )
 
     return knowledge_id
 
@@ -31,21 +34,18 @@ def validate_knowledge_id(knowledge_id: str) -> str:
 # write_knowledge
 # =============================================================================
 
+
 class WriteKnowledgeInput(BaseModel):
     """Input for write_knowledge MCP action."""
+
     content: str = Field(
-        min_length=10,
-        max_length=50000,
-        description="Knowledge entry content"
+        min_length=10, max_length=50000, description="Knowledge entry content"
     )
     context: str = Field(
-        min_length=5,
-        max_length=1000,
-        description="Context keywords for searchability"
+        min_length=5, max_length=1000, description="Context keywords for searchability"
     )
     scope: str = Field(
-        min_length=3,
-        description="Scope identifier in 'namespace:scope' format"
+        min_length=3, description="Scope identifier in 'namespace:scope' format"
     )
 
     @field_validator("scope")
@@ -57,6 +57,7 @@ class WriteKnowledgeInput(BaseModel):
 
 class WriteKnowledgeOutput(BaseModel):
     """Output for write_knowledge MCP action."""
+
     id: str = Field(description="Generated knowledge entry ID")
     scope: str = Field(description="Assigned scope identifier")
 
@@ -65,28 +66,25 @@ class WriteKnowledgeOutput(BaseModel):
 # update_knowledge
 # =============================================================================
 
+
 class UpdateKnowledgeInput(BaseModel):
     """Input for update_knowledge MCP action."""
-    id: str = Field(
-        min_length=8,
-        description="Knowledge entry ID to update"
-    )
+
+    id: str = Field(min_length=8, description="Knowledge entry ID to update")
     content: str | None = Field(
         default=None,
         min_length=10,
         max_length=50000,
-        description="Updated knowledge content (optional)"
+        description="Updated knowledge content (optional)",
     )
     context: str | None = Field(
         default=None,
         min_length=5,
         max_length=1000,
-        description="Updated context keywords (optional)"
+        description="Updated context keywords (optional)",
     )
     scope: str | None = Field(
-        default=None,
-        min_length=3,
-        description="Updated scope identifier (optional)"
+        default=None, min_length=3, description="Updated scope identifier (optional)"
     )
 
     @field_validator("id")
@@ -104,6 +102,7 @@ class UpdateKnowledgeInput(BaseModel):
 
 class UpdateKnowledgeOutput(BaseModel):
     """Output for update_knowledge MCP action."""
+
     id: str = Field(description="Updated knowledge entry ID")
     scope: str = Field(description="Current scope identifier")
 
@@ -112,12 +111,11 @@ class UpdateKnowledgeOutput(BaseModel):
 # delete_knowledge
 # =============================================================================
 
+
 class DeleteKnowledgeInput(BaseModel):
     """Input for delete_knowledge MCP action."""
-    id: str = Field(
-        min_length=8,
-        description="Knowledge entry ID to delete"
-    )
+
+    id: str = Field(min_length=8, description="Knowledge entry ID to delete")
 
     @field_validator("id")
     @classmethod
@@ -128,6 +126,7 @@ class DeleteKnowledgeInput(BaseModel):
 
 class DeleteKnowledgeOutput(BaseModel):
     """Output for delete_knowledge MCP action."""
+
     id: str = Field(description="Deleted knowledge entry ID")
 
 
@@ -135,15 +134,15 @@ class DeleteKnowledgeOutput(BaseModel):
 # resolve_knowledge_conflict
 # =============================================================================
 
+
 class ResolveKnowledgeConflictInput(BaseModel):
     """Input for resolve_knowledge_conflict MCP action."""
+
     active_id: str = Field(
-        min_length=8,
-        description="Knowledge entry ID to keep active"
+        min_length=8, description="Knowledge entry ID to keep active"
     )
     suppressed_ids: list[str] = Field(
-        min_length=1,
-        description="Knowledge entry IDs to suppress"
+        min_length=1, description="Knowledge entry IDs to suppress"
     )
 
     @field_validator("active_id")
@@ -161,6 +160,7 @@ class ResolveKnowledgeConflictInput(BaseModel):
 
 class ResolveKnowledgeConflictOutput(BaseModel):
     """Output for resolve_knowledge_conflict MCP action."""
+
     active_id: str = Field(description="Active knowledge entry ID")
     suppressed_ids: list[str] = Field(description="Suppressed knowledge entry IDs")
 
@@ -169,20 +169,20 @@ class ResolveKnowledgeConflictOutput(BaseModel):
 # get_task_context
 # =============================================================================
 
+
 class GetTaskContextInput(BaseModel):
     """Input for get_task_context MCP action."""
+
     queries: list[str] = Field(
         min_length=1,
         max_length=10,
-        description="Multiple targeted queries for complex tasks"
+        description="Multiple targeted queries for complex tasks",
     )
     scope: str = Field(
-        min_length=3,
-        description="Starting scope for knowledge search with inheritance"
+        min_length=3, description="Starting scope for knowledge search with inheritance"
     )
     task_size: TaskSize | None = Field(
-        default=None,
-        description="Task complexity filter (optional)"
+        default=None, description="Task complexity filter (optional)"
     )
 
     @field_validator("queries")
@@ -210,6 +210,7 @@ class GetTaskContextInput(BaseModel):
 
 class GetTaskContextOutput(BaseModel):
     """Output for get_task_context MCP action."""
+
     results: dict[str, dict[str, str]] = Field(
         description="Knowledge organized by scope hierarchy (scope -> {id: content})"
     )

@@ -15,11 +15,15 @@ def validate_scope_format(scope: str) -> str:
 
     # Validate namespace format
     if not namespace.replace("-", "").replace("_", "").isalnum():
-        raise ValueError("Namespace must contain only alphanumeric, hyphens, underscores")
+        raise ValueError(
+            "Namespace must contain only alphanumeric, hyphens, underscores"
+        )
 
     # Validate scope name format
     if not scope_name.replace("-", "").replace("_", "").isalnum():
-        raise ValueError("Scope name must contain only alphanumeric, hyphens, underscores")
+        raise ValueError(
+            "Scope name must contain only alphanumeric, hyphens, underscores"
+        )
 
     return scope
 
@@ -28,21 +32,21 @@ def validate_scope_format(scope: str) -> str:
 # create_scope
 # =============================================================================
 
+
 class CreateScopeInput(BaseModel):
     """Input for create_scope MCP action."""
+
     scope: str = Field(
         min_length=3,  # minimum: "a:b"
         max_length=200,
-        description="Scope identifier in 'namespace:scope' format"
+        description="Scope identifier in 'namespace:scope' format",
     )
     description: str = Field(
-        min_length=1,
-        max_length=500,
-        description="Human-readable scope description"
+        min_length=1, max_length=500, description="Human-readable scope description"
     )
     parents: list[str] = Field(
         default_factory=list,
-        description="Parent scope identifiers (namespace:default auto-added)"
+        description="Parent scope identifiers (namespace:default auto-added)",
     )
 
     @field_validator("scope")
@@ -60,6 +64,7 @@ class CreateScopeInput(BaseModel):
 
 class CreateScopeOutput(BaseModel):
     """Output for create_scope MCP action."""
+
     scope: str = Field(description="Created scope identifier")
     description: str = Field(description="Scope description")
     parents: list[str] = Field(
@@ -71,27 +76,28 @@ class CreateScopeOutput(BaseModel):
 # update_scope
 # =============================================================================
 
+
 class UpdateScopeInput(BaseModel):
     """Input for update_scope MCP action."""
+
     scope: str = Field(
-        min_length=3,
-        description="Current scope identifier in 'namespace:scope' format"
+        min_length=3, description="Current scope identifier in 'namespace:scope' format"
     )
     new_scope: str | None = Field(
         default=None,
         min_length=3,
         max_length=200,
-        description="New scope identifier (optional)"
+        description="New scope identifier (optional)",
     )
     description: str | None = Field(
         default=None,
         min_length=1,
         max_length=500,
-        description="Updated scope description (optional)"
+        description="Updated scope description (optional)",
     )
     parents: list[str] | None = Field(
         default=None,
-        description="Updated parent scope list (namespace:default always preserved)"
+        description="Updated parent scope list (namespace:default always preserved)",
     )
 
     @field_validator("scope")
@@ -110,11 +116,14 @@ class UpdateScopeInput(BaseModel):
     @classmethod
     def validate_parent_list(cls, v: list[str] | None) -> list[str] | None:
         """Validate parent scope formats if provided."""
-        return [validate_scope_format(parent) for parent in v] if v is not None else None
+        return (
+            [validate_scope_format(parent) for parent in v] if v is not None else None
+        )
 
 
 class UpdateScopeOutput(BaseModel):
     """Output for update_scope MCP action."""
+
     scope: str = Field(description="Updated scope identifier")
     description: str = Field(description="Updated scope description")
     parents: list[str] = Field(
@@ -126,11 +135,13 @@ class UpdateScopeOutput(BaseModel):
 # delete_scope
 # =============================================================================
 
+
 class DeleteScopeInput(BaseModel):
     """Input for delete_scope MCP action."""
+
     scope: str = Field(
         min_length=3,
-        description="Scope identifier to delete in 'namespace:scope' format"
+        description="Scope identifier to delete in 'namespace:scope' format",
     )
 
     @field_validator("scope")
@@ -148,8 +159,8 @@ class DeleteScopeInput(BaseModel):
 
 class DeleteScopeOutput(BaseModel):
     """Output for delete_scope MCP action."""
+
     scope: str = Field(description="Deleted scope identifier")
     knowledge_deleted: int = Field(
-        ge=0,
-        description="Number of knowledge entries deleted"
+        ge=0, description="Number of knowledge entries deleted"
     )

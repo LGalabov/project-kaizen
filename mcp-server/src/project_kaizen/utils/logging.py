@@ -6,7 +6,7 @@ from typing import Any, cast
 
 import structlog
 
-from ..config import settings
+from ..settings import settings
 
 
 def configure_logging() -> None:
@@ -25,13 +25,15 @@ def configure_logging() -> None:
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso"),
-
         # Add caller information in debug mode
         structlog.processors.CallsiteParameterAdder(
-            parameters=[structlog.processors.CallsiteParameter.FILENAME,
-                       structlog.processors.CallsiteParameter.LINENO]
-        ) if settings.debug else structlog.processors.CallsiteParameterAdder(parameters=[]),
-
+            parameters=[
+                structlog.processors.CallsiteParameter.FILENAME,
+                structlog.processors.CallsiteParameter.LINENO,
+            ]
+        )
+        if settings.debug
+        else structlog.processors.CallsiteParameterAdder(parameters=[]),
         # Format as JSON for structured logging
         structlog.processors.JSONRenderer(),
     ]
@@ -54,7 +56,7 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     Returns:
         Configured structured logger
     """
-    return cast(structlog.stdlib.BoundLogger, structlog.get_logger(name))
+    return cast("structlog.stdlib.BoundLogger", structlog.get_logger(name))
 
 
 def log_mcp_tool_call(tool_name: str, **kwargs: Any) -> None:
@@ -65,11 +67,7 @@ def log_mcp_tool_call(tool_name: str, **kwargs: Any) -> None:
         **kwargs: Additional context to log
     """
     logger = get_logger("mcp.tools")
-    logger.info(
-        "MCP tool called",
-        tool=tool_name,
-        **kwargs
-    )
+    logger.info("MCP tool called", tool=tool_name, **kwargs)
 
 
 def log_database_operation(operation: str, **kwargs: Any) -> None:
@@ -80,14 +78,12 @@ def log_database_operation(operation: str, **kwargs: Any) -> None:
         **kwargs: Additional context to log (query, params, execution_time, etc.)
     """
     logger = get_logger("database")
-    logger.info(
-        "Database operation",
-        operation=operation,
-        **kwargs
-    )
+    logger.info("Database operation", operation=operation, **kwargs)
 
 
-def log_error_with_context(error: Exception, context: dict[str, Any] | None = None) -> None:
+def log_error_with_context(
+    error: Exception, context: dict[str, Any] | None = None
+) -> None:
     """Log error with structured context information.
 
     Args:
@@ -99,5 +95,5 @@ def log_error_with_context(error: Exception, context: dict[str, Any] | None = No
         "Error occurred",
         error_type=type(error).__name__,
         error_message=str(error),
-        **(context or {})
+        **(context or {}),
     )

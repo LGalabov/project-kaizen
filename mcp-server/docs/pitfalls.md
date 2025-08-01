@@ -200,7 +200,7 @@ if input.task_size:
 ```python
 # ❌ Wrong: Entry point function doesn't match pyproject.toml
 [project.scripts]
-kaizen-mcp = "project_kaizen.main:main"  # Function doesn't exist
+project-kaizen-mcp = "project_kaizen.main:main"  # Function doesn't exist
 
 def run():  # Function name mismatch
     mcp.run()
@@ -215,11 +215,11 @@ def run():  # Function name mismatch
 ```python
 # Match entry point to actual function name
 [project.scripts]
-kaizen-mcp = "project_kaizen.main:run"  # Correct function name
+project-kaizen-mcp = "project_kaizen.main:run"  # Correct function name
 
 # ✅ Standard __main__.py pattern
 [project.scripts]
-kaizen-mcp = "project_kaizen.__main__:main"  # FastMCP standard pattern
+project-kaizen-mcp = "project_kaizen.__main__:main"  # FastMCP standard pattern
 
 # __main__.py
 from project_kaizen.server import mcp

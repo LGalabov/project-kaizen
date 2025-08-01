@@ -2,12 +2,14 @@
 
 from typing import Any
 
-from .database_ops import get_db_manager
 from ..models.namespace import NamespaceInfo, NamespaceStyle, ScopeInfo
 from ..utils.logging import log_database_operation
+from .database_ops import get_db_manager
 
 
-async def list_namespaces(namespace: str | None = None, style: NamespaceStyle = NamespaceStyle.DETAILED) -> dict[str, NamespaceInfo]:
+async def list_namespaces(
+    namespace: str | None = None, style: NamespaceStyle = NamespaceStyle.DETAILS
+) -> dict[str, NamespaceInfo]:
     """Discover existing namespaces and scopes to decide whether to create new or reuse existing organizational structures."""
     db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
@@ -57,17 +59,18 @@ async def list_namespaces(namespace: str | None = None, style: NamespaceStyle = 
 
 
 async def create_namespace(name: str, description: str) -> dict[str, Any]:
-    """Create new namespace with automatic 'default' scope for immediate knowledge storage."""
+    """Create namespace with automatic 'default' scope."""
     db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
-        # Create namespace
         namespace_query = """
             INSERT INTO namespaces (name, description)
             VALUES ($1, $2)
             RETURNING id
         """
 
-        log_database_operation("INSERT", query="create_namespace", params=[name, description])
+        log_database_operation(
+            "INSERT", query="create_namespace", params=[name, description]
+        )
         namespace_result = await conn.fetchrow(namespace_query, name, description)
 
         if not namespace_result:
@@ -89,14 +92,12 @@ async def create_namespace(name: str, description: str) -> dict[str, Any]:
             "default": ScopeInfo(description=default_description)
         }
 
-        return {
-            "name": name,
-            "description": description,
-            "scopes": scopes
-        }
+        return {"name": name, "description": description, "scopes": scopes}
 
 
-async def update_namespace(name: str, new_name: str | None = None, description: str | None = None) -> dict[str, Any]:
+async def update_namespace(
+    name: str, new_name: str | None = None, description: str | None = None
+) -> dict[str, Any]:
     """Update namespace name and/or description with automatic reference updating."""
     db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
@@ -125,7 +126,7 @@ async def update_namespace(name: str, new_name: str | None = None, description: 
 
         update_query = f"""
             UPDATE namespaces
-            SET {', '.join(set_clauses)}
+            SET {", ".join(set_clauses)}
             WHERE name = ${param_count}
             RETURNING name, description
         """
@@ -149,14 +150,12 @@ async def update_namespace(name: str, new_name: str | None = None, description: 
 
         scopes: dict[str, ScopeInfo] = {}
         for scope_row in scope_rows:
-            scopes[scope_row["name"]] = ScopeInfo(
-                description=scope_row["description"]
-            )
+            scopes[scope_row["name"]] = ScopeInfo(description=scope_row["description"])
 
         return {
             "name": updated_result["name"],
             "description": updated_result["description"],
-            "scopes": scopes
+            "scopes": scopes,
         }
 
 
@@ -200,5 +199,5 @@ async def delete_namespace(name: str) -> dict[str, Any]:
         return {
             "name": name,
             "scopes_count": scope_count,
-            "knowledge_count": knowledge_count
+            "knowledge_count": knowledge_count,
         }

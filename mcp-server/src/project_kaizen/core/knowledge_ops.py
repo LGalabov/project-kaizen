@@ -4,25 +4,23 @@ import secrets
 import string
 from typing import Any
 
-from .database_ops import get_db_manager
 from ..utils.logging import log_database_operation
+from .database_ops import get_db_manager
 
 
 def generate_knowledge_id() -> str:
     """Generate a unique knowledge entry ID."""
-    # Generate 10-character alphanumeric ID
     alphabet = string.ascii_uppercase + string.digits
-    return ''.join(secrets.choice(alphabet) for _ in range(10))
+    return "".join(secrets.choice(alphabet) for _ in range(10))
 
 
 async def create_knowledge_entry(scope: str, content: str, context: str) -> str:
-    """Create knowledge entry - pure business logic."""
+    """Create knowledge entry with scope validation."""
     db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
-        # Parse scope
         namespace_name, scope_name = scope.split(":", 1)
 
-        # Get scope ID
+        # Validate scope exists
         scope_query = """
             SELECT s.id FROM scopes s
             JOIN namespaces n ON s.namespace_id = n.id
@@ -43,7 +41,11 @@ async def create_knowledge_entry(scope: str, content: str, context: str) -> str:
             RETURNING id
         """
 
-        log_database_operation("INSERT", query="write_knowledge", params=[scope_id, len(content), len(context)])
+        log_database_operation(
+            "INSERT",
+            query="write_knowledge",
+            params=[scope_id, len(content), len(context)],
+        )
         result = await conn.fetchrow(knowledge_query, scope_id, content, context)
 
         if not result:
@@ -52,7 +54,12 @@ async def create_knowledge_entry(scope: str, content: str, context: str) -> str:
         return str(result["id"])
 
 
-async def update_knowledge_entry(entry_id: str, content: str | None = None, context: str | None = None, scope: str | None = None) -> str:
+async def update_knowledge_entry(
+    entry_id: str,
+    content: str | None = None,
+    context: str | None = None,
+    scope: str | None = None,
+) -> str:
     """Update knowledge entry - pure business logic."""
     db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
@@ -75,7 +82,7 @@ async def update_knowledge_entry(entry_id: str, content: str | None = None, cont
 
         # Handle scope change if requested
         final_scope_id = current_scope_id
-        final_scope = current_scope
+        final_scope: str = current_scope
 
         if scope:
             namespace_name, scope_name = scope.split(":", 1)
@@ -124,7 +131,7 @@ async def update_knowledge_entry(entry_id: str, content: str | None = None, cont
 
         update_query = f"""
             UPDATE knowledge
-            SET {', '.join(set_clauses)}
+            SET {", ".join(set_clauses)}
             WHERE id = ${param_count}
             RETURNING id
         """
@@ -157,7 +164,9 @@ async def delete_knowledge_entry(entry_id: str) -> str:
         return entry_id
 
 
-async def resolve_knowledge_conflicts(active_id: str, suppressed_ids: list[str]) -> tuple[str, list[str]]:
+async def resolve_knowledge_conflicts(
+    active_id: str, suppressed_ids: list[str]
+) -> tuple[str, list[str]]:
     """Mark knowledge entries for conflict resolution when contradictory information exists."""
     db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
@@ -174,7 +183,9 @@ async def resolve_knowledge_conflicts(active_id: str, suppressed_ids: list[str])
             suppressed_result = await conn.fetchrow(suppressed_query, suppressed_id)
 
             if not suppressed_result:
-                raise ValueError(f"Suppressed knowledge entry '{suppressed_id}' not found")
+                raise ValueError(
+                    f"Suppressed knowledge entry '{suppressed_id}' not found"
+                )
 
         # Mark suppressed entries
         for suppressed_id in suppressed_ids:
@@ -187,12 +198,18 @@ async def resolve_knowledge_conflicts(active_id: str, suppressed_ids: list[str])
 
             await conn.execute(suppress_query, active_id, suppressed_id)
 
-        log_database_operation("UPDATE", query="suppress_knowledge_conflicts", params=[active_id, len(suppressed_ids)])
+        log_database_operation(
+            "UPDATE",
+            query="suppress_knowledge_conflicts",
+            params=[active_id, len(suppressed_ids)],
+        )
 
         return active_id, suppressed_ids
 
 
-async def get_task_context_knowledge(queries: list[str], scope: str, task_size: str | None = None) -> dict[str, dict[str, str]]:
+async def get_task_context_knowledge(
+    queries: list[str], scope: str, task_size: str | None = None
+) -> dict[str, dict[str, str]]:
     """AI provides multiple targeted queries for complex tasks, returns relevant knowledge organized by scope hierarchy."""
     db_manager = get_db_manager()
     async with db_manager.acquire() as conn:
@@ -254,7 +271,11 @@ async def get_task_context_knowledge(queries: list[str], scope: str, task_size: 
 
         knowledge_query += " ORDER BY rank DESC, k.updated_at DESC LIMIT 50"
 
-        log_database_operation("SELECT", query="get_task_context_search", params=[search_terms, len(scope_ids)])
+        log_database_operation(
+            "SELECT",
+            query="get_task_context_search",
+            params=[search_terms, len(scope_ids)],
+        )
         knowledge_results = await conn.fetch(knowledge_query, *query_params)
 
         # Organize results by scope hierarchy
