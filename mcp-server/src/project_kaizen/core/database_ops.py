@@ -1,18 +1,18 @@
 """Database operations for Project Kaizen MCP server."""
 
 import asyncio
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import asyncpg
-import structlog
 from asyncpg import Pool
 from asyncpg.pool import PoolConnectionProxy
 
 from ..exceptions import DatabaseError
 from ..settings import settings
 
-logger = structlog.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
@@ -40,8 +40,7 @@ class DatabaseManager:
         """Create the database connection pool."""
         try:
             logger.info(
-                "Initializing database connection pool",
-                dsn_host=settings.database.host,
+                f"Initializing database connection pool for host: {settings.database.host}"
             )
             self._pool = await asyncpg.create_pool(
                 dsn=settings.database.dsn,
@@ -50,12 +49,10 @@ class DatabaseManager:
                 command_timeout=30,
             )
             logger.info(
-                "Database pool initialized successfully",
-                min_connections=settings.database.min_connections,
-                max_connections=settings.database.max_connections,
+                f"Database pool initialized successfully (min={settings.database.min_connections}, max={settings.database.max_connections})"
             )
         except Exception as e:
-            logger.error("Failed to initialize database pool", error=str(e))
+            logger.error(f"Failed to initialize database pool: {e}", exc_info=True)
             raise DatabaseError(f"Database initialization failed: {e}") from e
 
     async def close(self) -> None:
@@ -81,7 +78,7 @@ class DatabaseManager:
             async with self._pool.acquire() as connection:
                 yield connection
         except Exception as e:
-            logger.error("Database connection error", error=str(e))
+            logger.error(f"Database connection error: {e}", exc_info=True)
             raise DatabaseError(f"Database operation failed: {e}") from e
 
     async def health_check(self) -> bool:
@@ -91,7 +88,7 @@ class DatabaseManager:
                 result = await conn.fetchval("SELECT 1")
                 return bool(result == 1)
         except Exception as e:
-            logger.error("Database health check failed", error=str(e))
+            logger.error(f"Database health check failed: {e}", exc_info=True)
             return False
 
     @property
