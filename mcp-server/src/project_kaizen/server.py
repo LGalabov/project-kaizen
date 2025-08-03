@@ -4,7 +4,7 @@ import logging
 from typing import Any, Literal
 
 import asyncpg
-from fastmcp import FastMCP
+from fastmcp.server import FastMCP
 from mcp.types import ToolAnnotations
 
 from .core import knowledge_ops, namespace_ops, scope_ops
