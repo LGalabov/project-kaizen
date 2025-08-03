@@ -11,7 +11,7 @@ services:
       - "5453:5432"
     volumes:
       - kz_data:/var/lib/postgresql/data/pgdata
-      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./01-initial-schema.sql:/docker-entrypoint-initdb.d/01-initial-schema.sql
       - ./test/sample-data.sql:/docker-entrypoint-initdb.d/02-sample-data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kz_user -d kz_knowledge"]

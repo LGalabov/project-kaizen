@@ -186,7 +186,7 @@ async def db_connection():
     )
     
     # Load schema
-    with open("../database/schema.sql") as f:
+    with open("../database/01-initial-schema.sql") as f:
         await conn.execute(f.read())
     
     yield conn

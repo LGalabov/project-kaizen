@@ -19,8 +19,8 @@ build-backend = "hatchling.build"
 dev-dependencies = [
     "pyright>=1.1.389",
     "pytest>=8.3.5",
-    "pytest-asyncio>=0.25.3",
-    "aiohttp>=3.8.0",
+    "pytest-asyncio>=1.1.0",
+    "testcontainers[postgres]>=4.12.0",
 ]
 
 [project.scripts]
@@ -28,6 +28,7 @@ project-kaizen-mcp = "project_kaizen:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+asyncio_mode = "auto"
 
 [tool.pyright]
 typeCheckingMode = "strict"

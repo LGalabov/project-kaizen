@@ -5,7 +5,7 @@ import os
 from typing import Literal, cast
 
 
-def main():
+def main() -> None:
     """Main entry point for the package."""
     parser = argparse.ArgumentParser(description='Project Kaizen MCP Server')
     parser.add_argument('--db-url', default=None, help='PostgreSQL connection URL')
@@ -20,7 +20,7 @@ def main():
     args = parser.parse_args()
     
     asyncio.run(server.main(
-        args.db_url or os.getenv("POSTGRES_URL", "postgresql://postgres:postgres@localhost:5432/project_kaizen"),
+        args.db_url or os.getenv("POSTGRES_URL", "postgresql://kz_user:kz_password@localhost:5453/kz_knowledge"),
         args.db_user or os.getenv("POSTGRES_USER", "postgres"),
         args.db_password or os.getenv("POSTGRES_PASSWORD", "postgres"),
         args.db_name or os.getenv("POSTGRES_DB", "project_kaizen"),

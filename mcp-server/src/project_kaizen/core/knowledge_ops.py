@@ -283,7 +283,7 @@ async def get_task_context_knowledge(
 
         for row in knowledge_results:
             scope_name = row["scope_name"]
-            knowledge_id = row["id"]
+            knowledge_id = str(row["id"])  # Convert to string for dict key
             content = row["content"]
 
             if scope_name not in results:

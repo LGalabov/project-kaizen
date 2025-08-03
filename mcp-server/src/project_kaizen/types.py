@@ -23,9 +23,9 @@ class NamespaceStyle(str, Enum):
 
 
 # Common type aliases
-type ScopeName = str     # Format: "namespace:scope"
-type NamespaceName = str # Globally unique identifier
-type KnowledgeID = str   # Entry ID (e.g., "K7H9M2PQX8")
+ScopeName = str     # Format: "namespace:scope"
+NamespaceName = str # Globally unique identifier
+KnowledgeID = str   # Entry ID (e.g., "K7H9M2PQX8")
 
 # Validation literals
 TaskSizeLiteral = Literal["XS", "S", "M", "L", "XL"]

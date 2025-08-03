@@ -107,7 +107,7 @@ async with db_manager.acquire() as conn:
 - **Error Handling**: Database errors handled at tool level where they occur
 
 ### Schema Management
-- **External Schema**: PostgreSQL schema in `database/schema.sql`
+- **External Schema**: PostgreSQL schema in `database/01-initial-schema.sql`
 - **Docker Integration**: Schema loaded via `docker-entrypoint-initdb.d/`
 - **No Migrations**: Schema is versioned, not migrated (for now)
 
@@ -240,7 +240,7 @@ async def test_db():
     conn = await asyncpg.connect(TEST_DATABASE_URL)
     
     # Load schema
-    with open("database/schema.sql") as f:
+    with open("database/01-initial-schema.sql") as f:
         await conn.execute(f.read())
     
     yield conn
