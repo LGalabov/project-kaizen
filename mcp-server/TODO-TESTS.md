@@ -1,22 +1,33 @@
 # Project Kaizen MCP Server - Integration Test Plan
 
+## Current Status: PHASE 1 COMPLETE ✅
+
+**Integration test framework is fully operational:**
+- ✅ **7 tests passing** (PostgreSQL + MCP client + framework validation)
+- ✅ **MCP server connection verified** via FastMCP STDIO transport
+- ✅ **All 12 MCP tools discoverable** via `list_tools()` protocol
+- ✅ **Database isolation working** (clean database per test)
+- ✅ **Architecture fixed** (proper `__main__.py` entry point)
+
+**Ready for Phase 2:** Real MCP tool functionality testing with database validation.
+
 ## Overview
 
-Complete integration test suite for all 12 MCP actions using **FastMCP Client** with real JSON-RPC protocol communication over in-memory transport. Tests PostgreSQL database integration, constraint validation, and MCP protocol compliance.
+Complete integration test suite for all 12 MCP actions using **FastMCP Client** with real JSON-RPC protocol communication over STDIO transport. Tests PostgreSQL database integration, constraint validation, and MCP protocol compliance.
 
-## Test Architecture
+## Test Architecture (ACTUAL IMPLEMENTATION)
 
 ```
 tests/
-├── conftest.py                     # PostgreSQL + FastMCP fixtures
-├── fixtures/
-│   ├── 01-initial-schema.sql       # Copy from database/01-initial-schema.sql
-│   └── test_data.sql               # Minimal test data (global + sample namespace)
-└── integration/
-    ├── test_mcp_namespace_tools.py # 4 namespace MCP tools
-    ├── test_mcp_scope_tools.py     # 3 scope MCP tools  
-    ├── test_mcp_knowledge_tools.py # 5 knowledge MCP tools
-    └── test_mcp_edge_cases.py      # Error handling & validation
+├── conftest.py                          # PostgreSQL + FastMCP fixtures ✅
+└── test_framework_verification.py      # Framework validation tests ✅
+
+# FUTURE STRUCTURE:
+# tests/integration/
+#     ├── test_mcp_namespace_tools.py   # 4 namespace MCP tools
+#     ├── test_mcp_scope_tools.py       # 3 scope MCP tools  
+#     ├── test_mcp_knowledge_tools.py   # 5 knowledge MCP tools
+#     └── test_mcp_edge_cases.py        # Error handling & validation
 ```
 
 ## Dependencies
@@ -25,27 +36,33 @@ tests/
 [tool.uv]
 dev-dependencies = [
     "pytest>=8.3.5",
-    "pytest-asyncio>=0.25.3", 
+    "pytest-asyncio>=1.1.0",   # Updated to latest version
     "testcontainers[postgres]>=4.12.0",
-    "fastmcp>=2.1.0",           # For Client testing
-    "asyncpg>=0.30.0",          # Database operations
+    # fastmcp>=2.1.0 already in main dependencies
+    # asyncpg>=0.30.0 already in main dependencies
 ]
 ```
 
 ## Implementation Steps
 
-### Phase 1: Setup (Day 1)
-- [ ] Add test dependencies to `pyproject.toml`
-- [ ] Create `conftest.py` with PostgreSQL container + FastMCP client fixtures
-- [ ] Copy database/01-initial-schema.sql to tests/fixtures/01-initial-schema.sql
-- [ ] Create minimal `fixtures/test_data.sql` (global namespace + 1 test namespace)
-- [ ] Verify test framework loads correctly
+### Phase 1: Setup ✅ COMPLETED
+- [x] Add test dependencies to `pyproject.toml` (pytest-asyncio 1.1.0, testcontainers[postgres] 4.12.0)
+- [x] Create `conftest.py` with PostgreSQL container + FastMCP client fixtures
+- [x] Schema loading implemented directly in conftest.py (no copy needed)
+- [x] Database triggers create global namespace automatically (no test_data.sql needed)
+- [x] Fix MCP server entry point (create `__main__.py`, refactor CLI logic from `__init__.py`)
+- [x] Verify MCP client connection works (FastMCP STDIO transport with real protocol)
+- [x] Verify test framework: **7 tests passing, 0 skipped, 0 failed**
+- [x] Verify MCP tool discovery: All 12 tools discoverable via `list_tools()`
 
-### Phase 2: Namespace Tools (Day 2)
-- [ ] Implement `test_mcp_namespace_tools.py` with all 4 namespace test cases
-- [ ] Test all success scenarios with real MCP protocol
-- [ ] Test all error scenarios (duplicates, invalid names, constraints)
-- [ ] Verify cascade deletion behavior
+### Phase 2: MCP Tool Integration Tests 🔄 READY TO START
+**Current Status: MCP server connection verified, all 12 tools discoverable**
+
+#### Next Immediate Actions:
+- [ ] Create first integration test: `test_create_namespace` with real MCP protocol
+- [ ] Create second integration test: `test_get_namespaces` with database validation  
+- [ ] Verify end-to-end flow: MCP call → Database changes → MCP response
+- [ ] Test error scenarios (duplicates, invalid names, constraints)
 
 ### Phase 3: Scope Tools (Day 3)  
 - [ ] Implement `test_mcp_scope_tools.py` with all 3 scope test cases

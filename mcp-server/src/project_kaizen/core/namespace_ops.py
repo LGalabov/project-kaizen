@@ -2,202 +2,219 @@
 
 from typing import Any
 
-from ..models.namespace import NamespaceInfo, NamespaceStyle, ScopeInfo
+from ..models.namespace import NamespaceData, NamespaceStyle, ScopeData
 from ..utils.logging import log_database_operation
-from .database_ops import get_db_manager
 
 
 async def list_namespaces(
-    namespace: str | None = None, style: NamespaceStyle = NamespaceStyle.DETAILS
-) -> dict[str, NamespaceInfo]:
-    """Discover existing namespaces and scopes to decide whether to create new or reuse existing organizational structures."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
-        # Base query for namespaces
-        namespace_query = "SELECT name, description FROM namespaces"
-        params: list[Any] = []
-
-        # Add namespace filter if specified
+    namespace: str | None = None, style: NamespaceStyle = NamespaceStyle.SHORT
+) -> dict[str, NamespaceData]:
+    """Discover existing namespaces and scopes in spec-compliant nested dictionary format."""
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
+        # Build base query for namespaces
         if namespace:
-            namespace_query += " WHERE name = $1"
-            params.append(namespace)
-
-        namespace_query += " ORDER BY name"
+            ns_query = "SELECT name, description FROM namespaces WHERE name = $1 ORDER BY name"
+            params = [namespace]
+        else:
+            ns_query = "SELECT name, description FROM namespaces ORDER BY name"
+            params = []
 
         log_database_operation("SELECT", query="get_namespaces", params=params)
-        namespace_rows = await conn.fetch(namespace_query, *params)
+        namespace_rows = await conn.fetch(ns_query, *params)
 
-        namespaces: dict[str, NamespaceInfo] = {}
-
+        # Build result dictionary
+        result: dict[str, NamespaceData] = {}
+        
         for ns_row in namespace_rows:
-            namespace_name = ns_row["name"]
-            namespaces[namespace_name] = NamespaceInfo(
-                description=ns_row["description"]
-            )
-
-            # Add scopes based on style
-            if style != NamespaceStyle.SHORT:
-                scope_query = """
-                    SELECT s.name, s.description
-                    FROM scopes s
-                    JOIN namespaces n ON s.namespace_id = n.id
-                    WHERE n.name = $1
-                    ORDER BY s.name
-                """
-
-                scope_rows = await conn.fetch(scope_query, namespace_name)
-
-                scopes: dict[str, ScopeInfo] = {}
-                for scope_row in scope_rows:
-                    scopes[scope_row["name"]] = ScopeInfo(
-                        description=scope_row["description"]
-                    )
-
-                namespaces[namespace_name].scopes = scopes
-
-        return namespaces
+            ns_name = ns_row["name"]
+            ns_description = ns_row["description"]
+            
+            # For SHORT style, only include description (no scopes)
+            if style == NamespaceStyle.SHORT:
+                result[ns_name] = NamespaceData(description=ns_description, scopes=None)
+                continue
+            
+            # For LONG and DETAILS styles, include scopes
+            scope_query = """
+                SELECT s.name, s.description, s.id
+                FROM scopes s
+                JOIN namespaces n ON s.namespace_id = n.id
+                WHERE n.name = $1
+                ORDER BY s.name
+            """
+            scope_rows = await conn.fetch(scope_query, ns_name)
+            
+            scopes_dict: dict[str, ScopeData] = {}
+            for scope_row in scope_rows:
+                scope_name = scope_row["name"]
+                scope_description = scope_row["description"]
+                
+                if style == NamespaceStyle.DETAILS:
+                    # Get parent information for DETAILS style
+                    parent_query = """
+                        SELECT n.name || ':' || s.name as parent_scope
+                        FROM scope_parents sp
+                        JOIN scopes s ON sp.parent_scope_id = s.id
+                        JOIN namespaces n ON s.namespace_id = n.id
+                        WHERE sp.child_scope_id = $1
+                        ORDER BY parent_scope
+                    """
+                    parent_rows = await conn.fetch(parent_query, scope_row["id"])
+                    parents = [p["parent_scope"] for p in parent_rows]
+                    scopes_dict[scope_name] = ScopeData(description=scope_description, parents=parents)
+                else:
+                    scopes_dict[scope_name] = ScopeData(description=scope_description, parents=None)
+            
+            result[ns_name] = NamespaceData(description=ns_description, scopes=scopes_dict)
+        
+        return result
 
 
 async def create_namespace(name: str, description: str) -> dict[str, Any]:
     """Create namespace with automatic 'default' scope."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
-        namespace_query = """
-            INSERT INTO namespaces (name, description)
-            VALUES ($1, $2)
-            RETURNING id
-        """
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
+        # Insert namespace (trigger will create default scope)
+        ns_result = await conn.fetchrow("""
+            INSERT INTO namespaces (name, description) 
+            VALUES ($1, $2) 
+            RETURNING id, name, description
+        """, name, description)
 
-        log_database_operation(
-            "INSERT", query="create_namespace", params=[name, description]
-        )
-        namespace_result = await conn.fetchrow(namespace_query, name, description)
-
-        if not namespace_result:
+        if not ns_result:
             raise ValueError(f"Failed to create namespace '{name}'")
+        
+        # Get the auto-created default scope
+        scope_result = await conn.fetchrow("""
+            SELECT name, description
+            FROM scopes s
+            WHERE s.namespace_id = $1 AND s.name = 'default'
+        """, ns_result["id"])
+        
+        if not scope_result:
+            raise ValueError(f"Default scope not created for namespace '{name}'")
 
-        namespace_id = namespace_result["id"]
-
-        # Create default scope
-        scope_query = """
-            INSERT INTO scopes (namespace_id, name, description)
-            VALUES ($1, $2, $3)
-        """
-
-        default_description = f"{description} organization-wide knowledge"
-        await conn.execute(scope_query, namespace_id, "default", default_description)
-
-        # Return result with default scope
-        scopes: dict[str, ScopeInfo] = {
-            "default": ScopeInfo(description=default_description)
+        scopes_dict = {
+            scope_result["name"]: ScopeData(
+                description=scope_result["description"],
+                parents=None
+            )
         }
 
-        return {"name": name, "description": description, "scopes": scopes}
+        return {
+            "name": ns_result["name"],
+            "description": ns_result["description"],
+            "scopes": scopes_dict
+        }
 
 
 async def update_namespace(
     name: str, new_name: str | None = None, description: str | None = None
 ) -> dict[str, Any]:
-    """Update namespace name and/or description with automatic reference updating."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
-        # Build update query dynamically
-        set_clauses: list[str] = []
-        params: list[Any] = []
-        param_count = 0
+    """Update namespace name and/or description."""
+    from ..server import get_db_pool
+    
+    if not new_name and not description:
+        raise ValueError("Either new_name or description must be provided")
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
+        # Build UPDATE query dynamically
+        updates = []
+        params = []
+        param_idx = 1
 
         if new_name:
-            param_count += 1
-            set_clauses.append(f"name = ${param_count}")
+            updates.append(f"name = ${param_idx}")
             params.append(new_name)
+            param_idx += 1
 
         if description:
-            param_count += 1
-            set_clauses.append(f"description = ${param_count}")
+            updates.append(f"description = ${param_idx}")
             params.append(description)
+            param_idx += 1
 
-        # Always update the updated_at timestamp
-        param_count += 1
-        set_clauses.append("updated_at = NOW()")
+        updates.append("updated_at = NOW()")
+        params.append(name)  # WHERE clause parameter
 
-        # Add WHERE clause parameter
-        param_count += 1
-        params.append(name)
-
-        update_query = f"""
-            UPDATE namespaces
-            SET {", ".join(set_clauses)}
-            WHERE name = ${param_count}
+        query = f"""
+            UPDATE namespaces 
+            SET {", ".join(updates)}
+            WHERE name = ${param_idx}
             RETURNING name, description
         """
 
         log_database_operation("UPDATE", query="update_namespace", params=params)
-        updated_result = await conn.fetchrow(update_query, *params)
+        result = await conn.fetchrow(query, *params)
 
-        if not updated_result:
+        if not result:
             raise ValueError(f"Namespace '{name}' not found")
 
         # Get all scopes for the updated namespace
-        scope_query = """
+        scope_rows = await conn.fetch("""
             SELECT s.name, s.description
             FROM scopes s
             JOIN namespaces n ON s.namespace_id = n.id
             WHERE n.name = $1
             ORDER BY s.name
-        """
+        """, result["name"])
 
-        scope_rows = await conn.fetch(scope_query, updated_result["name"])
-
-        scopes: dict[str, ScopeInfo] = {}
-        for scope_row in scope_rows:
-            scopes[scope_row["name"]] = ScopeInfo(description=scope_row["description"])
+        scopes_dict = {
+            row["name"]: ScopeData(
+                description=row["description"],
+                parents=None
+            )
+            for row in scope_rows
+        }
 
         return {
-            "name": updated_result["name"],
-            "description": updated_result["description"],
-            "scopes": scopes,
+            "name": result["name"],
+            "description": result["description"],
+            "scopes": scopes_dict
         }
 
 
 async def delete_namespace(name: str) -> dict[str, Any]:
     """Remove namespace and all associated scopes and knowledge entries."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
-        # Get counts before deletion for statistics
-        count_query = """
-            SELECT
-                (SELECT COUNT(*) FROM scopes s
-                 JOIN namespaces n ON s.namespace_id = n.id
-                 WHERE n.name = $1) as scope_count,
-                (SELECT COUNT(*) FROM knowledge k
-                 JOIN scopes s ON k.scope_id = s.id
-                 JOIN namespaces n ON s.namespace_id = n.id
-                 WHERE n.name = $1) as knowledge_count
-        """
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
+        # Get counts and delete in single transaction
+        result = await conn.fetchrow("""
+            WITH counts AS (
+                SELECT 
+                    COUNT(DISTINCT s.id) as scope_count,
+                    COUNT(k.id) as knowledge_count
+                FROM namespaces n
+                LEFT JOIN scopes s ON s.namespace_id = n.id
+                LEFT JOIN knowledge k ON k.scope_id = s.id
+                WHERE n.name = $1
+            ),
+            deleted AS (
+                DELETE FROM namespaces 
+                WHERE name = $1 
+                RETURNING name
+            )
+            SELECT 
+                deleted.name,
+                counts.scope_count,
+                counts.knowledge_count
+            FROM deleted, counts
+        """, name)
 
-        log_database_operation("SELECT", query="delete_namespace_counts", params=[name])
-        counts_result = await conn.fetchrow(count_query, name)
-
-        if counts_result is None:
+        if not result:
             raise ValueError(f"Namespace '{name}' not found")
-
-        scope_count = counts_result["scope_count"]
-        knowledge_count = counts_result["knowledge_count"]
-
-        # Delete namespace (cascades to scopes and knowledge)
-        delete_query = """
-            DELETE FROM namespaces WHERE name = $1
-            RETURNING name
-        """
 
         log_database_operation("DELETE", query="delete_namespace", params=[name])
-        deleted_result = await conn.fetchrow(delete_query, name)
-
-        if not deleted_result:
-            raise ValueError(f"Namespace '{name}' not found")
-
+        
         return {
-            "name": name,
-            "scopes_count": scope_count,
-            "knowledge_count": knowledge_count,
+            "name": result["name"],
+            "scopes_count": result["scope_count"],
+            "knowledge_count": result["knowledge_count"]
         }

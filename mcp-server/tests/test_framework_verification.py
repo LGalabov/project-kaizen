@@ -1,6 +1,5 @@
 """Test to verify the integration test framework is working correctly."""
 
-import pytest
 import asyncpg
 from fastmcp import Client
 from typing import Any
@@ -88,14 +87,23 @@ class TestFrameworkVerification:
         )
         assert namespace is None  # Should be cleaned up
 
-    @pytest.mark.skip(reason="MCP client test - requires MCP server implementation")
     async def test_mcp_client_connection(self, mcp_client: Client[Any]) -> None:
-        """Test that MCP client can connect to server (placeholder for now)."""
-        # This test is skipped until we have the MCP server implementation
-        # Once implemented, this should test:
-        # tools = await mcp_client.list_tools()
-        # assert len(tools) == 12
-        pass
+        """Test that MCP client can connect to server and discover tools."""
+        async with mcp_client:
+            # Test that we can connect and list tools
+            tools = await mcp_client.list_tools()
+            
+            # Verify we have the expected 12 MCP tools
+            tool_names = [tool.name for tool in tools]
+            expected_tools = {
+                "get_namespaces", "create_namespace", "update_namespace", "delete_namespace",
+                "create_scope", "update_scope", "delete_scope", 
+                "write_knowledge", "update_knowledge", "delete_knowledge", 
+                "resolve_knowledge_conflict", "get_task_context"
+            }
+            
+            assert len(tools) == 12, f"Expected 12 tools, got {len(tools)}: {tool_names}"
+            assert set(tool_names) == expected_tools, f"Missing tools: {expected_tools - set(tool_names)}"
 
     def test_fixtures_available(self, test_namespace_name: str, test_scope_name: str) -> None:
         """Test that helper fixtures provide expected values."""

@@ -3,15 +3,16 @@
 from typing import Any
 
 from ..utils.logging import log_database_operation
-from .database_ops import get_db_manager
 
 
 async def create_scope(
     namespace: str, scope_name: str, description: str, parents: list[str]
 ) -> dict[str, Any]:
     """Create new scope within namespace with automatic 'default' parent inheritance."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
         # Get namespace ID
         namespace_query = "SELECT id FROM namespaces WHERE name = $1"
         namespace_result = await conn.fetchrow(namespace_query, namespace)
@@ -91,8 +92,10 @@ async def update_scope(
     parents: list[str] | None = None,
 ) -> dict[str, Any]:
     """Update scope name, description, and parent relationships with automatic reference updating."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
         # Parse current scope
         current_namespace, current_scope_name = scope.split(":", 1)
 
@@ -212,8 +215,10 @@ async def update_scope(
 
 async def delete_scope(scope: str) -> dict[str, Any]:
     """Remove scope and all associated knowledge entries."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
         # Parse scope
         namespace_name, scope_name = scope.split(":", 1)
 

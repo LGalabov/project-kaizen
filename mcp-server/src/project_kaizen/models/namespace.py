@@ -13,24 +13,20 @@ class NamespaceStyle(str, Enum):
     DETAILS = "details"
 
 
-class ScopeInfo(BaseModel):
-    """Scope information in namespace responses."""
-
-    description: str = Field(description="Scope description")
-
-
 class NamespaceInfo(BaseModel):
-    """Namespace information with scopes."""
+    """Namespace information with metadata."""
 
+    name: str = Field(description="Namespace name")
     description: str = Field(description="Namespace description")
-    scopes: dict[str, ScopeInfo] | None = Field(
-        default=None, description="Scopes within namespace (style-dependent)"
-    )
 
 
-# =============================================================================
-# get_namespaces
-# =============================================================================
+class ScopeInfo(BaseModel):
+    """Scope information with parent relationships."""
+
+    name: str = Field(description="Scope name")
+    namespace: str = Field(description="Parent namespace name")
+    description: str = Field(description="Scope description")
+    parents: list[str] = Field(default_factory=list, description="Parent scope names")
 
 
 class GetNamespacesInput(BaseModel):
@@ -44,17 +40,26 @@ class GetNamespacesInput(BaseModel):
     )
 
 
+class ScopeData(BaseModel):
+    """Scope data within namespace for spec compliance."""
+    
+    description: str = Field(description="Scope description")
+    parents: list[str] | None = Field(default=None, description="Parent scope names (details style only)")
+
+
+class NamespaceData(BaseModel):
+    """Namespace data for spec compliance."""
+    
+    description: str = Field(description="Namespace description")
+    scopes: dict[str, ScopeData] | None = Field(default=None, description="Nested scopes (long/details style only)")
+
+
 class GetNamespacesOutput(BaseModel):
-    """Output for get_namespaces MCP action."""
+    """Output for get_namespaces MCP action matching specification structure."""
 
-    namespaces: dict[str, NamespaceInfo] = Field(
-        description="Discovered namespaces with their scopes"
+    namespaces: dict[str, NamespaceData] = Field(
+        description="Dictionary of namespaces with nested structure per MCP specification"
     )
-
-
-# =============================================================================
-# create_namespace
-# =============================================================================
 
 
 class CreateNamespaceInput(BaseModel):
@@ -76,14 +81,9 @@ class CreateNamespaceOutput(BaseModel):
 
     name: str = Field(description="Created namespace name")
     description: str = Field(description="Namespace description")
-    scopes: dict[str, ScopeInfo] = Field(
+    scopes: dict[str, ScopeData] = Field(
         description="Automatically created scopes (includes default)"
     )
-
-
-# =============================================================================
-# update_namespace
-# =============================================================================
 
 
 class UpdateNamespaceInput(BaseModel):
@@ -110,14 +110,9 @@ class UpdateNamespaceOutput(BaseModel):
 
     name: str = Field(description="Updated namespace name")
     description: str = Field(description="Updated namespace description")
-    scopes: dict[str, ScopeInfo] = Field(
+    scopes: dict[str, ScopeData] = Field(
         description="All scopes in the updated namespace"
     )
-
-
-# =============================================================================
-# delete_namespace
-# =============================================================================
 
 
 class DeleteNamespaceInput(BaseModel):

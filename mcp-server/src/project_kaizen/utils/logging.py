@@ -1,21 +1,20 @@
 """Simple Python logging configuration for Project Kaizen MCP server."""
 
 import logging
+import os
 import sys
 from typing import Any
-
-from ..settings import settings
 
 
 def configure_logging() -> None:
     """Configure simple Python logging for MCP server."""
-    
+
     # Configure standard library logging
     logging.basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         stream=sys.stdout,
-        level=getattr(logging, settings.log_level.upper()),
+        level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper()),
     )
 
 
@@ -68,5 +67,5 @@ def log_error_with_context(
     context_info = " ".join(f"{k}={v}" for k, v in (context or {}).items())
     logger.error(
         f"Error occurred: {type(error).__name__}: {error} {context_info}".strip(),
-        exc_info=True
+        exc_info=True,
     )

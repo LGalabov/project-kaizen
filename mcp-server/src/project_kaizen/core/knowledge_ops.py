@@ -5,7 +5,6 @@ import string
 from typing import Any
 
 from ..utils.logging import log_database_operation
-from .database_ops import get_db_manager
 
 
 def generate_knowledge_id() -> str:
@@ -16,8 +15,10 @@ def generate_knowledge_id() -> str:
 
 async def create_knowledge_entry(scope: str, content: str, context: str) -> str:
     """Create knowledge entry with scope validation."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
         namespace_name, scope_name = scope.split(":", 1)
 
         # Validate scope exists
@@ -61,8 +62,10 @@ async def update_knowledge_entry(
     scope: str | None = None,
 ) -> str:
     """Update knowledge entry - pure business logic."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
         # Get current knowledge entry
         current_query = """
             SELECT k.scope_id, k.content, k.context, n.name || ':' || s.name as current_scope
@@ -147,8 +150,10 @@ async def update_knowledge_entry(
 
 async def delete_knowledge_entry(entry_id: str) -> str:
     """Remove knowledge entry from system."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
         # Delete knowledge entry
         delete_query = """
             DELETE FROM knowledge WHERE id = $1
@@ -168,8 +173,10 @@ async def resolve_knowledge_conflicts(
     active_id: str, suppressed_ids: list[str]
 ) -> tuple[str, list[str]]:
     """Mark knowledge entries for conflict resolution when contradictory information exists."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
         # Verify active knowledge exists
         active_query = "SELECT id FROM knowledge WHERE id = $1"
         active_result = await conn.fetchrow(active_query, active_id)
@@ -211,8 +218,10 @@ async def get_task_context_knowledge(
     queries: list[str], scope: str, task_size: str | None = None
 ) -> dict[str, dict[str, str]]:
     """AI provides multiple targeted queries for complex tasks, returns relevant knowledge organized by scope hierarchy."""
-    db_manager = get_db_manager()
-    async with db_manager.acquire() as conn:
+    from ..server import get_db_pool
+    
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
         # Parse starting scope
         namespace_name, scope_name = scope.split(":", 1)
 

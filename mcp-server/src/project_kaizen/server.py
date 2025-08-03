@@ -5,6 +5,8 @@ from typing import Any, Literal
 
 import asyncpg
 from fastmcp.server import FastMCP
+from fastmcp.tools.tool import ToolResult
+from mcp.types import TextContent
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -30,13 +32,23 @@ from .models.scope import (
 from .utils.logging import log_error_with_context, log_mcp_tool_call
 
 # Set up logging
-logger = logging.getLogger('project-kaizen')
+logger = logging.getLogger("project-kaizen")
 logger.setLevel(logging.INFO)
+
+# Global database pool - initialized by main()
+_db_pool: asyncpg.Pool | None = None
+
+
+def get_db_pool() -> asyncpg.Pool:
+    """Get the global database pool."""
+    if _db_pool is None:
+        raise RuntimeError("Database pool not initialized. Call main() first.")
+    return _db_pool
 
 
 async def main(
     db_url: str,
-    db_user: str, 
+    db_user: str,
     db_password: str,
     db_name: str,
     transport: Literal["stdio", "http"] = "stdio",
@@ -50,43 +62,44 @@ async def main(
     logger.info(f"Transport: {transport}")
 
     # Build connection URL if components provided, otherwise use db_url directly
-    if db_url.startswith('postgresql://'):
+    if db_url.startswith("postgresql://"):
         connection_url = db_url
     else:
         # Assume db_url is host, build full URL
         connection_url = f"postgresql://{db_user}:{db_password}@{db_url}/{db_name}"
-    
-    # Create connection pool
+
+    # Create global connection pool
+    global _db_pool
     try:
-        pool = await asyncpg.create_pool(
-            connection_url,
-            min_size=1,
-            max_size=2
+        _db_pool = await asyncpg.create_pool(connection_url, min_size=1, max_size=5)
+        logger.info(
+            f"Connected to PostgreSQL pool: {connection_url.split('@')[0]}@{connection_url.split('@')[1]}"
         )
-        logger.info(f"Connected to PostgreSQL pool: {connection_url.split('@')[0]}@{connection_url.split('@')[1]}")
     except Exception as e:
         logger.error(f"Failed to connect to PostgreSQL: {e}")
         exit(1)
 
     # Verify connection with a simple query
     try:
-        async with pool.acquire() as conn:
+        async with _db_pool.acquire() as conn:
             await conn.execute("SELECT 1")
         logger.info("Database connection verified")
     except Exception as e:
         logger.error(f"Database connection test failed: {e}")
-        await pool.close()
+        await _db_pool.close()
         exit(1)
-    
+
     logger.info("MCP server ready with database pool")
-    
+
     # Run the server with the specified transport
     logger.info(f"Starting server with transport: {transport}")
     try:
         match transport:
             case "http":
                 logger.info(f"HTTP server starting on {host}:{port}{path}")
-                await mcp.run_http_async(host=host, port=port, path=path, stateless_http=True)
+                await mcp.run_http_async(
+                    host=host, port=port, path=path, stateless_http=True
+                )
             case "stdio":
                 logger.info("STDIO server starting")
                 await mcp.run_stdio_async()
@@ -94,7 +107,8 @@ async def main(
                 raise ValueError(f"Unsupported transport: {transport}")
     finally:
         # Clean up database pool
-        await pool.close()
+        if _db_pool:
+            await _db_pool.close()
         logger.info("Database pool closed")
 
 
@@ -105,29 +119,37 @@ mcp: FastMCP[Any] = FastMCP("project-kaizen")
 # === NAMESPACE TOOLS ===
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Get Namespaces",
-    readOnlyHint=True,
-    destructiveHint=False,
-    idempotentHint=True,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Get Namespaces",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 async def get_namespaces(
-    namespace: str | None = Field(default=None, description="Optional exact match filter for specific namespace"),
-    style: str = Field(default="short", description="Output detail level: short, long, or details")
-) -> GetNamespacesOutput:
+    namespace: str | None = Field(
+        default=None, description="Optional exact match filter for specific namespace"
+    ),
+    style: str = Field(
+        default="short", description="Output detail level: short, long, or details"
+    ),
+) -> ToolResult:
     """Discover existing namespaces and scopes to decide whether to create new or reuse existing organizational structures."""
     from .models.namespace import NamespaceStyle
-    
+
     # Convert string to enum
     style_enum = NamespaceStyle(style)
-    
-    log_mcp_tool_call(
-        "get_namespaces", namespace=namespace, style=style_enum.value
-    )
+
+    log_mcp_tool_call("get_namespaces", namespace=namespace, style=style_enum.value)
     try:
-        result = await namespace_ops.list_namespaces(namespace, style_enum)
-        return GetNamespacesOutput(namespaces=result)
+        namespaces_dict = await namespace_ops.list_namespaces(namespace, style_enum)
+        output = GetNamespacesOutput(namespaces=namespaces_dict)
+        return ToolResult(
+            content=[TextContent(type="text", text=output.model_dump_json(exclude_none=True))],
+            structured_content=output.model_dump(exclude_none=True)
+        )
     except Exception as e:
         log_error_with_context(
             e, {"tool": "get_namespaces", "namespace": namespace, "style": style}
@@ -135,24 +157,30 @@ async def get_namespaces(
         raise
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Create Namespace",
-    readOnlyHint=False,
-    destructiveHint=False,
-    idempotentHint=True,
-    openWorldHint=True
-))
-async def create_namespace(
-    name: str = Field(description="Namespace name (lowercase, alphanumeric, hyphens, underscores)"),
-    description: str = Field(description="Human-readable namespace description")
-) -> CreateNamespaceOutput:
-    """Create new namespace with automatic 'default' scope for immediate knowledge storage."""
-    log_mcp_tool_call(
-        "create_namespace", name=name, description=description
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Create Namespace",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
     )
+)
+async def create_namespace(
+    name: str = Field(
+        description="Namespace name (lowercase, alphanumeric, hyphens, underscores)"
+    ),
+    description: str = Field(description="Human-readable namespace description"),
+) -> ToolResult:
+    """Create new namespace with automatic 'default' scope for immediate knowledge storage."""
+    log_mcp_tool_call("create_namespace", name=name, description=description)
     try:
         result = await namespace_ops.create_namespace(name, description)
-        return CreateNamespaceOutput(**result)
+        output = CreateNamespaceOutput(**result)
+        return ToolResult(
+            content=[TextContent(type="text", text=output.model_dump_json(exclude_none=True))],
+            structured_content=output.model_dump(exclude_none=True)
+        )
     except Exception as e:
         log_error_with_context(
             e, {"tool": "create_namespace", "name": name, "description": description}
@@ -160,18 +188,24 @@ async def create_namespace(
         raise
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Update Namespace",
-    readOnlyHint=False,
-    destructiveHint=False,
-    idempotentHint=False,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Update Namespace",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def update_namespace(
     name: str = Field(description="Current namespace name"),
-    new_name: str | None = Field(default=None, description="New namespace name (optional)"),
-    description: str | None = Field(default=None, description="Updated namespace description (optional)")
-) -> UpdateNamespaceOutput:
+    new_name: str | None = Field(
+        default=None, description="New namespace name (optional)"
+    ),
+    description: str | None = Field(
+        default=None, description="Updated namespace description (optional)"
+    ),
+) -> ToolResult:
     """Update namespace name and/or description with automatic reference updating."""
     log_mcp_tool_call(
         "update_namespace",
@@ -180,53 +214,69 @@ async def update_namespace(
         description=description,
     )
     try:
-        result = await namespace_ops.update_namespace(
-            name, new_name, description
+        result = await namespace_ops.update_namespace(name, new_name, description)
+        output = UpdateNamespaceOutput(**result)
+        return ToolResult(
+            content=[TextContent(type="text", text=output.model_dump_json(exclude_none=True))],
+            structured_content=output.model_dump(exclude_none=True)
         )
-        return UpdateNamespaceOutput(**result)
     except Exception as e:
         log_error_with_context(
-            e, {"tool": "update_namespace", "name": name, "new_name": new_name, "description": description}
+            e,
+            {
+                "tool": "update_namespace",
+                "name": name,
+                "new_name": new_name,
+                "description": description,
+            },
         )
         raise
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Delete Namespace", 
-    readOnlyHint=False,
-    destructiveHint=True,
-    idempotentHint=True,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Delete Namespace",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 async def delete_namespace(
-    name: str = Field(description="Namespace name to delete")
-) -> DeleteNamespaceOutput:
+    name: str = Field(description="Namespace name to delete"),
+) -> ToolResult:
     """Remove namespace and all associated scopes and knowledge entries."""
     log_mcp_tool_call("delete_namespace", name=name)
     try:
         result = await namespace_ops.delete_namespace(name)
-        return DeleteNamespaceOutput(**result)
-    except Exception as e:
-        log_error_with_context(
-            e, {"tool": "delete_namespace", "name": name}
+        output = DeleteNamespaceOutput(**result)
+        return ToolResult(
+            content=[TextContent(type="text", text=output.model_dump_json())],
+            structured_content=output
         )
+    except Exception as e:
+        log_error_with_context(e, {"tool": "delete_namespace", "name": name})
         raise
 
 
 # === SCOPE TOOLS ===
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Create Scope",
-    readOnlyHint=False,
-    destructiveHint=False,
-    idempotentHint=True,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Create Scope",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 async def create_scope(
     scope: str = Field(description="Full scope identifier (namespace:scope_name)"),
     description: str = Field(description="Human-readable scope description"),
-    parents: list[str] | None = Field(default=None, description="Optional parent scope identifiers")
+    parents: list[str] | None = Field(
+        default=None, description="Optional parent scope identifiers"
+    ),
 ) -> CreateScopeOutput:
     """Create new scope within namespace with automatic 'default' parent inheritance."""
     log_mcp_tool_call(
@@ -242,22 +292,38 @@ async def create_scope(
         )
         return CreateScopeOutput(**result)
     except Exception as e:
-        log_error_with_context(e, {"tool": "create_scope", "scope": scope, "description": description, "parents": parents})
+        log_error_with_context(
+            e,
+            {
+                "tool": "create_scope",
+                "scope": scope,
+                "description": description,
+                "parents": parents,
+            },
+        )
         raise
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Update Scope",
-    readOnlyHint=False,
-    destructiveHint=False,
-    idempotentHint=False,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Update Scope",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def update_scope(
     scope: str = Field(description="Current scope identifier (namespace:scope_name)"),
-    new_scope: str | None = Field(default=None, description="New scope identifier (optional)"),
-    description: str | None = Field(default=None, description="Updated scope description (optional)"),
-    parents: list[str] | None = Field(default=None, description="Updated parent scope identifiers (optional)")
+    new_scope: str | None = Field(
+        default=None, description="New scope identifier (optional)"
+    ),
+    description: str | None = Field(
+        default=None, description="Updated scope description (optional)"
+    ),
+    parents: list[str] | None = Field(
+        default=None, description="Updated parent scope identifiers (optional)"
+    ),
 ) -> UpdateScopeOutput:
     """Update scope name, description, and parent relationships with automatic reference updating."""
     log_mcp_tool_call(
@@ -268,24 +334,33 @@ async def update_scope(
         parents=parents,
     )
     try:
-        result = await scope_ops.update_scope(
-            scope, new_scope, description, parents
-        )
+        result = await scope_ops.update_scope(scope, new_scope, description, parents)
         return UpdateScopeOutput(**result)
     except Exception as e:
-        log_error_with_context(e, {"tool": "update_scope", "scope": scope, "new_scope": new_scope, "description": description, "parents": parents})
+        log_error_with_context(
+            e,
+            {
+                "tool": "update_scope",
+                "scope": scope,
+                "new_scope": new_scope,
+                "description": description,
+                "parents": parents,
+            },
+        )
         raise
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Delete Scope",
-    readOnlyHint=False,
-    destructiveHint=True,
-    idempotentHint=True,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Delete Scope",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 async def delete_scope(
-    scope: str = Field(description="Scope identifier to delete (namespace:scope_name)")
+    scope: str = Field(description="Scope identifier to delete (namespace:scope_name)"),
 ) -> DeleteScopeOutput:
     """Remove scope and all associated knowledge entries."""
     log_mcp_tool_call("delete_scope", scope=scope)
@@ -300,17 +375,19 @@ async def delete_scope(
 # === KNOWLEDGE TOOLS ===
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Write Knowledge",
-    readOnlyHint=False,
-    destructiveHint=False,
-    idempotentHint=False,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Write Knowledge",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def write_knowledge(
     scope: str = Field(description="Target scope identifier (namespace:scope_name)"),
     content: str = Field(description="Knowledge content to store"),
-    context: str = Field(description="Context or summary for the knowledge entry")
+    context: str = Field(description="Context or summary for the knowledge entry"),
 ) -> WriteKnowledgeOutput:
     """Store new knowledge entry with automatic scope assignment and context tagging."""
     log_mcp_tool_call(
@@ -326,23 +403,37 @@ async def write_knowledge(
         return WriteKnowledgeOutput(id=knowledge_id, scope=scope)
     except Exception as e:
         log_error_with_context(
-            e, {"tool": "write_knowledge", "scope": scope, "content_length": len(content), "context": context}
+            e,
+            {
+                "tool": "write_knowledge",
+                "scope": scope,
+                "content_length": len(content),
+                "context": context,
+            },
         )
         raise
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Update Knowledge",
-    readOnlyHint=False,
-    destructiveHint=False,
-    idempotentHint=False,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Update Knowledge",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
 async def update_knowledge(
     id: str = Field(description="Knowledge entry ID to update"),
-    content: str | None = Field(default=None, description="Updated knowledge content (optional)"),
-    context: str | None = Field(default=None, description="Updated context or summary (optional)"),
-    scope: str | None = Field(default=None, description="Updated scope identifier (optional)")
+    content: str | None = Field(
+        default=None, description="Updated knowledge content (optional)"
+    ),
+    context: str | None = Field(
+        default=None, description="Updated context or summary (optional)"
+    ),
+    scope: str | None = Field(
+        default=None, description="Updated scope identifier (optional)"
+    ),
 ) -> UpdateKnowledgeOutput:
     """Update knowledge entry content, context, or scope assignment."""
     log_mcp_tool_call(
@@ -358,20 +449,28 @@ async def update_knowledge(
         return UpdateKnowledgeOutput(id=id, scope=final_scope)
     except Exception as e:
         log_error_with_context(
-            e, {"tool": "update_knowledge", "id": id, "content_length": len(content) if content else None, "scope": scope}
+            e,
+            {
+                "tool": "update_knowledge",
+                "id": id,
+                "content_length": len(content) if content else None,
+                "scope": scope,
+            },
         )
         raise
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Delete Knowledge",
-    readOnlyHint=False,
-    destructiveHint=True,
-    idempotentHint=True,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Delete Knowledge",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 async def delete_knowledge(
-    id: str = Field(description="Knowledge entry ID to delete")
+    id: str = Field(description="Knowledge entry ID to delete"),
 ) -> DeleteKnowledgeOutput:
     """Remove knowledge entry from system."""
     log_mcp_tool_call("delete_knowledge", id=id)
@@ -379,22 +478,24 @@ async def delete_knowledge(
         deleted_id = await knowledge_ops.delete_knowledge_entry(id)
         return DeleteKnowledgeOutput(id=deleted_id)
     except Exception as e:
-        log_error_with_context(
-            e, {"tool": "delete_knowledge", "id": id}
-        )
+        log_error_with_context(e, {"tool": "delete_knowledge", "id": id})
         raise
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Resolve Knowledge Conflict",
-    readOnlyHint=False,
-    destructiveHint=False,
-    idempotentHint=True,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Resolve Knowledge Conflict",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 async def resolve_knowledge_conflict(
     active_id: str = Field(description="Knowledge entry ID to keep as active"),
-    suppressed_ids: list[str] = Field(description="Knowledge entry IDs to suppress due to conflict")
+    suppressed_ids: list[str] = Field(
+        description="Knowledge entry IDs to suppress due to conflict"
+    ),
 ) -> ResolveKnowledgeConflictOutput:
     """Mark knowledge entries for conflict resolution when contradictory information exists."""
     log_mcp_tool_call(
@@ -403,37 +504,52 @@ async def resolve_knowledge_conflict(
         suppressed_count=len(suppressed_ids),
     )
     try:
-        result_active_id, result_suppressed_ids = await knowledge_ops.resolve_knowledge_conflicts(
-            active_id, suppressed_ids
-        )
+        (
+            result_active_id,
+            result_suppressed_ids,
+        ) = await knowledge_ops.resolve_knowledge_conflicts(active_id, suppressed_ids)
         return ResolveKnowledgeConflictOutput(
             active_id=result_active_id, suppressed_ids=result_suppressed_ids
         )
     except Exception as e:
         log_error_with_context(
-            e, {"tool": "resolve_knowledge_conflict", "active_id": active_id, "suppressed_ids": suppressed_ids}
+            e,
+            {
+                "tool": "resolve_knowledge_conflict",
+                "active_id": active_id,
+                "suppressed_ids": suppressed_ids,
+            },
         )
         raise
 
 
-@mcp.tool(annotations=ToolAnnotations(
-    title="Get Task Context", 
-    readOnlyHint=True,
-    destructiveHint=False,
-    idempotentHint=True,
-    openWorldHint=True
-))
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Get Task Context",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    )
+)
 async def get_task_context(
-    queries: list[str] = Field(description="Multiple targeted search queries for the task"),
-    scope: str | None = Field(default=None, description="Optional scope to limit search (namespace:scope_name)"),
-    task_size: str | None = Field(default=None, description="Task complexity: small, medium, large, or xlarge")
+    queries: list[str] = Field(
+        description="Multiple targeted search queries for the task"
+    ),
+    scope: str | None = Field(
+        default=None,
+        description="Optional scope to limit search (namespace:scope_name)",
+    ),
+    task_size: str | None = Field(
+        default=None, description="Task complexity: small, medium, large, or xlarge"
+    ),
 ) -> GetTaskContextOutput:
     """AI provides multiple targeted queries for complex tasks, MCP returns relevant knowledge organized by scope hierarchy."""
     from .models.knowledge import TaskSize
-    
+
     # Convert string to enum if provided
     task_size_enum = TaskSize(task_size) if task_size else None
-    
+
     log_mcp_tool_call(
         "get_task_context",
         queries=queries,
@@ -450,6 +566,12 @@ async def get_task_context(
         return GetTaskContextOutput(results=results)
     except Exception as e:
         log_error_with_context(
-            e, {"tool": "get_task_context", "queries": queries, "scope": scope, "task_size": task_size}
+            e,
+            {
+                "tool": "get_task_context",
+                "queries": queries,
+                "scope": scope,
+                "task_size": task_size,
+            },
         )
         raise
