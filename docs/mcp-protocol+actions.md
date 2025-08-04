@@ -405,7 +405,7 @@ Covers:
 **Output**:
 ```json
 {
-  "id": "K7H9M2PQX8",
+  "id": "42",
   "scope": "acme:mobile-app"
 }
 ```
@@ -419,7 +419,7 @@ Covers:
 **Input**:
 ```json
 {
-  "id": "K7H9M2PQX8",
+  "id": "42",
   "content": "Updated implementation guide...",       // optional
   "context": "react-native google oauth mobile",     // optional
   "scope": "acme:mobile-payments"                    // optional
@@ -429,7 +429,7 @@ Covers:
 **Output**:
 ```json
 {
-  "id": "K7H9M2PQX8",
+  "id": "42",
   "scope": "acme:mobile-payments"
 }
 ```
@@ -443,14 +443,14 @@ Covers:
 **Input**:
 ```json
 {
-  "id": "K7H9M2PQX8"
+  "id": "42"
 }
 ```
 
 **Output**:
 ```json
 {
-  "id": "K7H9M2PQX8"
+  "id": "42"
 }
 ```
 
@@ -463,16 +463,16 @@ Covers:
 **Input**:
 ```json
 {
-  "active_id": "K7H9M2PQX8",
-  "suppressed_ids": ["G3K7R4NXL9", "J9L2X6VB43"]
+  "active_id": "73",
+  "suppressed_ids": ["28", "91"]
 }
 ```
 
 **Output**:
 ```json
 {
-  "active_id": "K7H9M2PQX8",
-  "suppressed_ids": ["G3K7R4NXL9", "J9L2X6VB43"]
+  "active_id": "73",
+  "suppressed_ids": ["28", "91"]
 }
 ```
 
@@ -501,13 +501,13 @@ Covers:
 ```json
 {
   "acme:petshop-storefront": {
-    "K7H9M2PQX8": "Use custom OAuth redirect handler for iOS"
+    "67": "Use custom OAuth redirect handler for iOS"
   },
   "acme:ecommerce-mobile": {
-    "G3K7R4NXL9": "Mobile group must use OAuth with PKCE"
+    "34": "Mobile group must use OAuth with PKCE"
   },
   "global:default": {
-    "J9L2X6VB43": "Always use HTTPS for external APIs"
+    "89": "Always use HTTPS for external APIs"
   }
 }
 ```

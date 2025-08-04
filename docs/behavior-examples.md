@@ -350,8 +350,8 @@ AI: [Stores service-specific indentation rule]
 ```
 AI: [Search returns two conflicting entries from same scope]
     "I found conflicting API timeout values in the mobile-team scope:
-     - Entry K1: 30-second timeout for API calls
-     - Entry K2: 60-second timeout for API calls
+     - Entry 47: 30-second timeout for API calls
+     - Entry 83: 60-second timeout for API calls
      
      Which should be active?"
 
@@ -378,11 +378,11 @@ AI: [Resolves conflict by marking 30-second rule as active, suppressing 60-secon
 
 | AI Query | Expected Returns | Reasoning |
 |----------|------------------|-----------|
-| "implement Google OAuth for mobile app" | K2, K3, K7, K10 | Matches "google oauth", "oauth mobile", "mobile auth" |
-| "commit and push code safely" (decomposed) | K4, K5 | Separate queries for commit and push |
-| "Java code formatting rules" | K6 | Exact match "java formatting" |
-| "secure API communication" | K1, K9 | Matches "API security", "HTTPS", "rate limiting" |
-| "mobile authentication best practices" | K3, K7, K10 | Matches "mobile auth", "security practices" |
+| "implement Google OAuth for mobile app" | 23, 56, 78, 92 | Matches "google oauth", "oauth mobile", "mobile auth" |
+| "commit and push code safely" (decomposed) | 41, 67 | Separate queries for commit and push |
+| "Java code formatting rules" | 85 | Exact match "java formatting" |
+| "secure API communication" | 19, 74 | Matches "API security", "HTTPS", "rate limiting" |
+| "mobile authentication best practices" | 56, 78, 92 | Matches "mobile auth", "security practices" |
 
 ## Summary
 
