@@ -81,7 +81,7 @@ class TestMCPNamespaceTools:
                     })
                 
                 error_msg = str(exc_info.value).lower()
-                assert "invalid" in error_msg or "name" in error_msg
+                assert "invalid" in error_msg or "name" in error_msg or "match" in error_msg or "validation" in error_msg
     
     async def test_get_namespaces_varies_detail_when_style_changes(self, mcp_client: Client[Any], clean_db: asyncpg.Connection) -> None:
         """Test get_namespaces returns different detail levels per style."""
@@ -298,3 +298,18 @@ class TestMCPNamespaceTools:
                     "name": nonexistent_name
                 })
             assert "not found" in str(exc_info.value).lower()
+    
+    async def test_create_namespace_fails_with_empty_description(self, mcp_client: Client[Any]) -> None:
+        """Test namespace creation with empty description fails validation."""
+        namespace_name = f"empty-desc-{uuid.uuid4().hex[:8]}"
+        
+        async with mcp_client:
+            # Test empty description should fail
+            with pytest.raises(ToolError) as exc_info:
+                await mcp_client.call_tool("create_namespace", {
+                    "name": namespace_name,
+                    "description": ""
+                })
+            
+            error_msg = str(exc_info.value).lower()
+            assert "non-empty" in error_msg or "validation" in error_msg

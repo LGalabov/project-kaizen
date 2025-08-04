@@ -1,6 +1,6 @@
 """Pydantic models for namespace MCP actions."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..types import NamespaceStyle
 
@@ -58,14 +58,22 @@ class CreateNamespaceInput(BaseModel):
     """Input for create_namespace MCP action."""
 
     name: str = Field(
-        min_length=1,
-        max_length=100,
+        min_length=2,
+        max_length=64,
         pattern=r"^[a-z0-9\-_]+$",
         description="Namespace name (lowercase, alphanumeric, hyphens, underscores)",
     )
     description: str = Field(
-        min_length=1, max_length=500, description="Human-readable namespace description"
+        min_length=2, max_length=64, description="Human-readable namespace description"
     )
+
+    @field_validator("description")
+    @classmethod
+    def validate_description_not_empty(cls, v: str) -> str:
+        """Validate description is not empty or whitespace only."""
+        if not v or not v.strip():
+            raise ValueError("Description cannot be empty or whitespace only")
+        return v.strip()
 
 
 class CreateNamespaceOutput(BaseModel):
@@ -84,17 +92,25 @@ class UpdateNamespaceInput(BaseModel):
     name: str = Field(min_length=1, description="Current namespace name")
     new_name: str | None = Field(
         default=None,
-        min_length=1,
-        max_length=100,
+        min_length=2,
+        max_length=64,
         pattern=r"^[a-z0-9\-_]+$",
         description="New namespace name (optional)",
     )
     description: str | None = Field(
         default=None,
-        min_length=1,
-        max_length=500,
+        min_length=2,
+        max_length=64,
         description="Updated namespace description (optional)",
     )
+
+    @field_validator("description")
+    @classmethod
+    def validate_description_not_empty(cls, v: str | None) -> str | None:
+        """Validate description is not empty or whitespace only if provided."""
+        if v is not None and (not v or not v.strip()):
+            raise ValueError("Description cannot be empty or whitespace only")
+        return v.strip() if v is not None else None
 
 
 class UpdateNamespaceOutput(BaseModel):

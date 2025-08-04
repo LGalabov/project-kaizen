@@ -17,7 +17,6 @@ class ScopeRepository(BaseRepository):
         parent_ids: list[int]
     ) -> dict[str, Any]:
         """Create new scope with parent relationships."""
-        # Create the scope
         scope_result = await self._fetch_one("""
             INSERT INTO scopes (namespace_id, name, description)
             VALUES ($1, $2, $3)
@@ -29,13 +28,13 @@ class ScopeRepository(BaseRepository):
 
         scope_id = scope_result["id"]
 
-        # Add parent relationships
-        for parent_id in parent_ids:
+        # Batch insert parent relationships
+        if parent_ids:
             await self._execute_query("""
                 INSERT INTO scope_parents (child_scope_id, parent_scope_id)
-                VALUES ($1, $2)
+                SELECT * FROM UNNEST($1::BIGINT[], $2::BIGINT[])
                 ON CONFLICT (child_scope_id, parent_scope_id) DO NOTHING
-            """, scope_id, parent_id)
+            """, [scope_id] * len(parent_ids), parent_ids)
 
         log_database_operation("INSERT", query="create_scope", params=[namespace_id, scope_name, description])
         return {"id": scope_id}
@@ -88,22 +87,20 @@ class ScopeRepository(BaseRepository):
             WHERE id = $2
         """, description, scope_id)
     
-    async def clear_parents(self, scope_id: int) -> None:
-        """Remove all parent relationships for a scope."""
-        await self._execute_query("""
-            DELETE FROM scope_parents WHERE child_scope_id = $1
-        """, scope_id)
     
-    async def add_parent(self, child_scope_id: int, parent_scope_id: int) -> None:
-        """Add parent relationship."""
-        await self._execute_query("""
-            INSERT INTO scope_parents (child_scope_id, parent_scope_id)
-            VALUES ($1, $2)
-        """, child_scope_id, parent_scope_id)
+    async def update_parents(self, scope_name: str, parent_scope_names: list[str]) -> list[str]:
+        """Update scope parent relationships using database function."""
+        result = await self._fetch_one("""
+            SELECT update_scope_parents($1, $2) as parent_names
+        """, scope_name, parent_scope_names)
+        
+        if not result or result["parent_names"] is None:
+            return []
+        
+        return list(result["parent_names"])
     
     async def delete(self, scope_id: int) -> int:
         """Delete scope and return knowledge count."""
-        # Get knowledge count before deletion
         count_result = await self._fetch_one("""
             SELECT COUNT(*) as knowledge_count
             FROM knowledge k WHERE k.scope_id = $1
@@ -111,7 +108,6 @@ class ScopeRepository(BaseRepository):
         
         knowledge_count = count_result["knowledge_count"] if count_result else 0
         
-        # Delete scope (cascades to scope_parents and knowledge via foreign keys)
         deleted_result = await self._fetch_one("""
             DELETE FROM scopes WHERE id = $1
             RETURNING name

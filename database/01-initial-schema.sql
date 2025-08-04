@@ -284,12 +284,13 @@ $$ LANGUAGE plpgsql;
 -- =============================================================================
 
 -- Returns default scope ID for any namespace
-CREATE OR REPLACE FUNCTION get_default_scope_id(target_namespace_id BIGINT) RETURNS BIGINT AS $$
+CREATE OR REPLACE FUNCTION get_default_scope_id(target_namespace TEXT) RETURNS BIGINT AS $$
 BEGIN
     RETURN (
-        SELECT id 
-        FROM scopes
-        WHERE namespace_id = target_namespace_id AND name = 'default'
+        SELECT s.id 
+        FROM scopes s
+        JOIN namespaces n ON s.namespace_id = n.id
+        WHERE n.name = target_namespace AND s.name = 'default'
     );
 END;
 $$ LANGUAGE plpgsql STABLE;
@@ -297,7 +298,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- Returns global:default scope ID
 CREATE OR REPLACE FUNCTION get_global_default_scope_id() RETURNS BIGINT AS $$
 BEGIN
-    RETURN get_default_scope_id((SELECT id FROM namespaces WHERE name = 'global'));
+    RETURN get_default_scope_id('global');
 END;
 $$ LANGUAGE plpgsql STABLE;
 
@@ -331,6 +332,48 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Updates scope parent relationships ensuring default parent is preserved
+CREATE OR REPLACE FUNCTION update_scope_parents(
+    target_scope TEXT,
+    parent_scope_names TEXT[]
+) RETURNS TEXT[] AS $$
+DECLARE
+    target_scope_id BIGINT;
+    target_namespace TEXT;
+BEGIN
+    -- Parse target scope
+    target_namespace := split_part(target_scope, ':', 1);
+    
+    SELECT s.id INTO target_scope_id
+    FROM scopes s JOIN namespaces n ON s.namespace_id = n.id
+    WHERE n.name = target_namespace AND s.name = split_part(target_scope, ':', 2);
+    
+    IF target_scope_id IS NULL THEN
+        RAISE EXCEPTION 'Target scope "%" not found', target_scope;
+    END IF;
+    
+    -- Simple: delete all, insert all (including auto-added default)
+    DELETE FROM scope_parents WHERE child_scope_id = target_scope_id;
+    
+    INSERT INTO scope_parents (child_scope_id, parent_scope_id)
+    SELECT DISTINCT target_scope_id, s.id
+    FROM unnest(parent_scope_names || ARRAY[target_namespace || ':default']) AS parent_name
+    JOIN scopes s ON s.id = (
+        SELECT s2.id FROM scopes s2 JOIN namespaces n2 ON s2.namespace_id = n2.id 
+        WHERE n2.name || ':' || s2.name = parent_name
+    );
+    
+    -- Return current parents
+    RETURN (
+        SELECT array_agg(n.name || ':' || s.name ORDER BY n.name || ':' || s.name)
+        FROM scope_parents sp
+        JOIN scopes s ON sp.parent_scope_id = s.id
+        JOIN namespaces n ON s.namespace_id = n.id
+        WHERE sp.child_scope_id = target_scope_id
+    );
+END;
+$$ LANGUAGE plpgsql;
+
 -- Refreshes hierarchy cache for affected scopes and descendants
 CREATE OR REPLACE FUNCTION refresh_scope_hierarchy() RETURNS TRIGGER AS $$
 DECLARE
@@ -344,10 +387,15 @@ BEGIN
         SELECT sp.child_scope_id
         FROM affected_scopes af
         JOIN scope_parents sp ON af.scope_id = sp.parent_scope_id
+    ),
+    existing_affected_scopes AS (
+        SELECT af.scope_id
+        FROM affected_scopes af
+        WHERE EXISTS (SELECT 1 FROM scopes s WHERE s.id = af.scope_id)
     )
     INSERT INTO scope_hierarchy (scope_id, ancestors)
     SELECT scope_id, calculate_scope_ancestors(scope_id)
-    FROM affected_scopes
+    FROM existing_affected_scopes
     ON CONFLICT (scope_id) 
     DO UPDATE SET ancestors = calculate_scope_ancestors(scope_hierarchy.scope_id);
     
@@ -379,8 +427,14 @@ $$ LANGUAGE plpgsql;
 
 -- Prevents circular dependencies in scope hierarchy
 CREATE OR REPLACE FUNCTION prevent_circular_inheritance() RETURNS TRIGGER AS $$
+DECLARE
+    parent_ancestors BIGINT[];
 BEGIN
-    IF NEW.child_scope_id = ANY(calculate_scope_ancestors(NEW.parent_scope_id)) THEN
+    -- Get parent scope ancestors using ID directly
+    parent_ancestors := calculate_scope_ancestors(NEW.parent_scope_id);
+    
+    -- Check if child would create circular reference
+    IF NEW.child_scope_id = ANY(parent_ancestors) THEN
         RAISE EXCEPTION 'Cannot add parent scope % to child scope % - this would create a circular dependency in the scope hierarchy.', 
             NEW.parent_scope_id, NEW.child_scope_id;
     END IF;
@@ -391,13 +445,18 @@ $$ LANGUAGE plpgsql;
 -- Ensures all scopes inherit from their namespace default
 CREATE OR REPLACE FUNCTION enforce_default_parent() RETURNS TRIGGER AS $$
 DECLARE
+    namespace_name TEXT;
     default_scope_id BIGINT;
 BEGIN
     IF NEW.name = 'default' THEN
         RETURN NEW;
     END IF;
     
-    default_scope_id := get_default_scope_id(NEW.namespace_id);
+    -- Get namespace name for the new scope
+    SELECT name INTO namespace_name FROM namespaces WHERE id = NEW.namespace_id;
+    
+    -- Get default scope ID using namespace name
+    default_scope_id := get_default_scope_id(namespace_name);
     
     IF default_scope_id IS NULL THEN
         RAISE EXCEPTION 'Default scope must exist before creating custom scopes';
@@ -607,6 +666,8 @@ COMMENT ON MATERIALIZED VIEW mv_active_knowledge_search IS 'Pre-joined, conflict
 
 COMMENT ON FUNCTION get_default_scope_id IS 'Returns default scope ID for any namespace';
 COMMENT ON FUNCTION get_global_default_scope_id IS 'Returns global:default scope ID';
+COMMENT ON FUNCTION calculate_scope_ancestors IS 'Calculates complete ancestor chain including global:default for scope ID';
+COMMENT ON FUNCTION update_scope_parents IS 'Updates scope parent relationships ensuring default parent is preserved';
 COMMENT ON FUNCTION get_task_context IS 'Multi-query knowledge retrieval with scope inheritance and relevance ranking for MCP get_task_context action';
 COMMENT ON FUNCTION enforce_default_parent IS 'Ensures all scopes inherit from default scope';
 COMMENT ON FUNCTION prevent_global_namespace_deletion IS 'Prevents deletion of the global namespace';

@@ -37,17 +37,26 @@ class CreateScopeInput(BaseModel):
     """Input for create_scope MCP action."""
 
     scope: str = Field(
-        min_length=3,  # minimum: "a:b"
-        max_length=200,
+        min_length=5,  # minimum: "aa:bb"
+        max_length=129,  # 64 + 1 + 64 for namespace:scope
         description="Scope identifier in 'namespace:scope' format",
     )
     description: str = Field(
-        min_length=1, max_length=500, description="Human-readable scope description"
+        min_length=2, max_length=64, description="Human-readable scope description"
     )
+
     parents: list[str] = Field(
         default_factory=list,
         description="Parent scope identifiers (namespace:default auto-added)",
     )
+
+    @field_validator("description")
+    @classmethod
+    def validate_description_not_empty(cls, v: str) -> str:
+        """Validate description is not empty or whitespace only."""
+        if not v or not v.strip():
+            raise ValueError("Description cannot be empty or whitespace only")
+        return v.strip()
 
     @field_validator("scope")
     @classmethod
@@ -81,18 +90,18 @@ class UpdateScopeInput(BaseModel):
     """Input for update_scope MCP action."""
 
     scope: str = Field(
-        min_length=3, description="Current scope identifier in 'namespace:scope' format"
+        min_length=5, description="Current scope identifier in 'namespace:scope' format"
     )
     new_scope: str | None = Field(
         default=None,
-        min_length=3,
-        max_length=200,
+        min_length=5,
+        max_length=129,  # 64 + 1 + 64 for namespace:scope
         description="New scope identifier (optional)",
     )
     description: str | None = Field(
         default=None,
-        min_length=1,
-        max_length=500,
+        min_length=2,
+        max_length=64,
         description="Updated scope description (optional)",
     )
     parents: list[str] | None = Field(
@@ -111,6 +120,14 @@ class UpdateScopeInput(BaseModel):
     def validate_new_scope_format(cls, v: str | None) -> str | None:
         """Validate new scope format if provided."""
         return validate_scope_format(v) if v is not None else None
+
+    @field_validator("description")
+    @classmethod
+    def validate_update_description_not_empty(cls, v: str | None) -> str | None:
+        """Validate description is not empty or whitespace only if provided."""
+        if v is not None and (not v or not v.strip()):
+            raise ValueError("Description cannot be empty or whitespace only")
+        return v.strip() if v is not None else None
 
     @field_validator("parents")
     @classmethod
@@ -140,7 +157,7 @@ class DeleteScopeInput(BaseModel):
     """Input for delete_scope MCP action."""
 
     scope: str = Field(
-        min_length=3,
+        min_length=5,
         description="Scope identifier to delete in 'namespace:scope' format",
     )
 

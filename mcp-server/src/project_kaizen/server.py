@@ -133,12 +133,24 @@ async def get_namespaces(
 )
 async def create_namespace(
     name: str = Field(
+        min_length=2,
+        max_length=64,
+        pattern=r"^[a-z0-9\-_]+$",
         description="Namespace name (lowercase, alphanumeric, hyphens, underscores)"
     ),
-    description: str = Field(description="Human-readable namespace description"),
+    description: str = Field(
+        min_length=2, 
+        max_length=64,
+        description="Human-readable namespace description"
+    ),
 ) -> ToolResult:
     """Create new namespace with automatic 'default' scope for immediate knowledge storage."""
     log_mcp_tool_call("create_namespace", name=name, description=description)
+    
+    # Validate description is not empty or whitespace only
+    if not description or not description.strip():
+        raise ValueError("Description cannot be empty or whitespace only")
+    
     try:
         container = get_container()
         service = container.namespace_service()
@@ -161,13 +173,25 @@ async def create_namespace(
 async def update_namespace(
     name: str = Field(description="Current namespace name"),
     new_name: str | None = Field(
-        default=None, description="New namespace name (optional)"
+        default=None,
+        min_length=2,
+        max_length=64,
+        pattern=r"^[a-z0-9\-_]+$", 
+        description="New namespace name (optional)"
     ),
     description: str | None = Field(
-        default=None, description="Updated namespace description (optional)"
+        default=None,
+        min_length=2,
+        max_length=64,
+        description="Updated namespace description (optional)"
     ),
 ) -> ToolResult:
     """Update namespace name and/or description with automatic reference updating."""
+    
+    # Validate description is not empty or whitespace only if provided
+    if description is not None and (not description or not description.strip()):
+        raise ValueError("Description cannot be empty or whitespace only")
+    
     log_mcp_tool_call(
         "update_namespace",
         name=name,
@@ -225,13 +249,26 @@ async def delete_namespace(
     )
 )
 async def create_scope(
-    scope: str = Field(description="Full scope identifier (namespace:scope_name)"),
-    description: str = Field(description="Human-readable scope description"),
+    scope: str = Field(
+        min_length=5,
+        max_length=129,
+        description="Full scope identifier (namespace:scope_name)"
+    ),
+    description: str = Field(
+        min_length=2,
+        max_length=64,
+        description="Human-readable scope description"
+    ),
     parents: list[str] | None = Field(
         default=None, description="Optional parent scope identifiers"
     ),
 ) -> CreateScopeOutput:
     """Create new scope within namespace with automatic 'default' parent inheritance."""
+    
+    # Validate description is not empty or whitespace only
+    if not description or not description.strip():
+        raise ValueError("Description cannot be empty or whitespace only")
+    
     log_mcp_tool_call(
         "create_scope",
         scope=scope,
@@ -268,16 +305,27 @@ async def create_scope(
 async def update_scope(
     scope: str = Field(description="Current scope identifier (namespace:scope_name)"),
     new_scope: str | None = Field(
-        default=None, description="New scope identifier (optional)"
+        default=None,
+        min_length=5,
+        max_length=129,
+        description="New scope identifier (optional)"
     ),
     description: str | None = Field(
-        default=None, description="Updated scope description (optional)"
+        default=None,
+        min_length=2,
+        max_length=64,
+        description="Updated scope description (optional)"
     ),
     parents: list[str] | None = Field(
         default=None, description="Updated parent scope identifiers (optional)"
     ),
 ) -> UpdateScopeOutput:
     """Update scope name, description, and parent relationships with automatic reference updating."""
+    
+    # Validate description is not empty or whitespace only if provided
+    if description is not None and (not description or not description.strip()):
+        raise ValueError("Description cannot be empty or whitespace only")
+    
     log_mcp_tool_call(
         "update_scope",
         scope=scope,
