@@ -1,20 +1,9 @@
 """Pydantic models for knowledge MCP actions."""
 
-from enum import Enum
-
 from pydantic import BaseModel, Field, field_validator
 
 from .scope import validate_scope_format
-
-
-class TaskSize(str, Enum):
-    """Task complexity levels for knowledge filtering."""
-
-    XS = "XS"  # Quick fixes
-    S = "S"  # Small features
-    M = "M"  # Medium projects
-    L = "L"  # Large implementations
-    XL = "XL"  # Architectural changes
+from ..types import TaskSize
 
 
 def validate_knowledge_id(knowledge_id: str) -> str:

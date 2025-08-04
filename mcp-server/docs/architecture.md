@@ -5,14 +5,17 @@
 ### Single FastMCP Instance Pattern
 ```python
 # server.py - Single global instance with all tools
-from mcp.server.fastmcp import FastMCP
+from fastmcp.server import FastMCP
 
 mcp = FastMCP("project-kaizen")
 
 @mcp.tool
-async def write_knowledge(input: WriteKnowledgeInput) -> WriteKnowledgeOutput:
-    result = await knowledge_ops.create_knowledge_entry(input.scope, input.content, input.context)
-    return WriteKnowledgeOutput(id=result, scope=input.scope)
+async def write_knowledge(scope: str, content: str, context: str) -> ToolResult:
+    container = get_container()
+    service = container.knowledge_service()
+    knowledge_id = await service.create_knowledge_entry(scope, content, context)
+    output = WriteKnowledgeOutput(id=knowledge_id, scope=scope)
+    return create_tool_result(output)
 ```
 
 **Benefits:**
@@ -23,14 +26,21 @@ async def write_knowledge(input: WriteKnowledgeInput) -> WriteKnowledgeOutput:
 
 ### Minimal Entry Point
 ```python
-# __main__.py - 9 lines total
-from project_kaizen.server import mcp
+# __main__.py - Clean entry point
+from . import server
 
-def main() -> None:
-    mcp.run()
+async def main(
+    db_url: str = "localhost:5432",
+    db_user: str = "postgres", 
+    db_password: str = "password",
+    db_name: str = "project_kaizen",
+    transport: str = "stdio",
+) -> None:
+    await server.main(db_url, db_user, db_password, db_name, transport)
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
 ```
 
 **Key Features:**
@@ -42,26 +52,30 @@ if __name__ == "__main__":
 ```
 src/project_kaizen/
 ├── __init__.py          # Package marker with version
-├── __main__.py          # Entry: mcp.run() (9 lines)
+├── __main__.py          # Entry point with database configuration
 ├── server.py            # Single FastMCP + 12 @mcp.tool decorators
-├── settings.py          # Pydantic configuration  
+├── container.py         # Dependency injection container
 ├── py.typed             # PEP 561 type marker
 ├── exceptions.py        # Custom exceptions
 ├── types.py             # Common types/enums
-├── core/                # Business logic (no FastMCP dependencies)
-│   ├── __init__.py
-│   ├── database_ops.py  # Lazy database manager
-│   ├── knowledge_ops.py # Knowledge operations
-│   ├── namespace_ops.py # Namespace operations
-│   └── scope_ops.py     # Scope operations
-├── models/              # Pydantic input/output models
-│   ├── __init__.py
-│   ├── knowledge.py     # Knowledge I/O models
-│   ├── namespace.py     # Namespace I/O models
-│   └── scope.py         # Scope I/O models
-└── utils/
-    ├── __init__.py
-    └── logging.py       # Structured logging
+├── infrastructure/      # Database connection management
+│   └── database.py
+├── repositories/        # Data access layer
+│   ├── base.py
+│   ├── namespace.py
+│   ├── scope.py
+│   └── knowledge.py
+├── services/           # Business logic layer
+│   ├── namespace.py
+│   ├── scope.py
+│   └── knowledge.py
+├── models/             # Pydantic input/output models
+│   ├── namespace.py
+│   ├── scope.py
+│   └── knowledge.py
+└── utils/              # Utility functions
+    ├── logging.py
+    └── mcp.py
 ```
 
 ## Core Patterns

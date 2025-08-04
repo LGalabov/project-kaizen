@@ -22,11 +22,6 @@ class NamespaceStyle(str, Enum):
     DETAILS = "details"  # Include scope parents
 
 
-# Common type aliases
-ScopeName = str  # Format: "namespace:scope"
-NamespaceName = str  # Globally unique identifier
-KnowledgeID = str  # Entry ID (e.g., "K7H9M2PQX8")
-
 # Validation literals
 TaskSizeLiteral = Literal["XS", "S", "M", "L", "XL"]
 NamespaceStyleLiteral = Literal["short", "long", "details"]
@@ -35,8 +30,3 @@ NamespaceStyleLiteral = Literal["short", "long", "details"]
 DEFAULT_SCOPE_NAME = "default"
 GLOBAL_NAMESPACE = "global"
 GLOBAL_DEFAULT_SCOPE = "global:default"
-
-# Database limits
-MIN_DB_CONNECTIONS = 1
-MAX_DB_CONNECTIONS = 20
-DEFAULT_DB_CONNECTIONS = 10

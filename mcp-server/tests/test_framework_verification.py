@@ -4,6 +4,7 @@ import asyncpg
 from fastmcp import Client
 from typing import Any
 from testcontainers.postgres import PostgresContainer  # type: ignore[import-untyped]
+from project_kaizen.types import GLOBAL_NAMESPACE, DEFAULT_SCOPE_NAME
 
 
 class TestFrameworkVerification:
@@ -49,7 +50,7 @@ class TestFrameworkVerification:
         """Test that global namespace and default scope are created."""
         # Check global namespace exists
         namespace = await clean_db.fetchrow(
-            "SELECT * FROM namespaces WHERE name = 'global'"
+            "SELECT * FROM namespaces WHERE name = $1", GLOBAL_NAMESPACE
         )
         assert namespace is not None
         assert namespace["description"] == "Universal knowledge accessible everywhere"
@@ -58,8 +59,8 @@ class TestFrameworkVerification:
         scope = await clean_db.fetchrow("""
             SELECT s.* FROM scopes s 
             JOIN namespaces n ON s.namespace_id = n.id 
-            WHERE n.name = 'global' AND s.name = 'default'
-        """)
+            WHERE n.name = $1 AND s.name = $2
+        """, GLOBAL_NAMESPACE, DEFAULT_SCOPE_NAME)
         assert scope is not None
         assert "default scope" in scope["description"].lower()
 

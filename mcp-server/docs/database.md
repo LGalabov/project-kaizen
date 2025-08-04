@@ -16,42 +16,58 @@
 
 ## Connection Management Strategy
 
-### Lazy Connection Pooling Pattern
+### Connection Pool Management Pattern
 ```python
-# core/database_ops.py - Lazy initialization pattern
-_db_manager: DatabaseManager | None = None
-
-def get_db_manager() -> DatabaseManager:
-    """Get or create database manager with lazy initialization."""
-    global _db_manager
-    if _db_manager is None:
-        _db_manager = DatabaseManager()
-    return _db_manager
-
-class DatabaseManager:
-    def __init__(self):
+# infrastructure/database.py - Clean database abstraction
+class DatabasePool:
+    """Manages PostgreSQL connection pool lifecycle."""
+    
+    def __init__(self) -> None:
         self._pool: asyncpg.Pool | None = None
-        self._lock = asyncio.Lock()
     
-    async def initialize(self) -> None:
-        if self._pool is not None:
-            return
+    async def initialize(self, db_url: str, db_user: str, db_password: str, db_name: str) -> None:
+        """Initialize connection pool."""
+        if db_url.startswith("postgresql://"):
+            connection_url = db_url
+        else:
+            connection_url = f"postgresql://{db_user}:{db_password}@{db_url}/{db_name}"
         
-        async with self._lock:
-            if self._pool is not None:
-                return
-            
-            self._pool = await asyncpg.create_pool(
-                dsn=settings.database.dsn,
-                min_size=settings.database.min_connections,  # 1
-                max_size=settings.database.max_connections,  # 5
-                command_timeout=30,
-            )
+        self._pool = await asyncpg.create_pool(connection_url, min_size=1, max_size=5)
     
-    @asynccontextmanager
-    async def acquire(self):
+    def get_pool(self) -> asyncpg.Pool:
+        """Get the connection pool."""
         if self._pool is None:
-            await self.initialize()
+            raise RuntimeError("Database pool not initialized. Call initialize() first.")
+        return self._pool
+
+# Global instance
+_database_pool = DatabasePool()
+
+def get_database_pool() -> DatabasePool:
+    """Get the global database pool instance."""
+    return _database_pool
+```
+
+### Repository Pattern Integration
+```python
+# repositories/base.py - Common database operations
+class BaseRepository:
+    """Base repository with common database operations."""
+    
+    def __init__(self) -> None:
+        self._db_pool = get_database_pool()
+    
+    async def _fetch_one(self, query: str, *params: Any) -> asyncpg.Record | None:
+        """Fetch a single row."""
+        pool = self._db_pool.get_pool()
+        async with pool.acquire() as conn:
+            return await conn.fetchrow(query, *params)
+    
+    async def _fetch_all(self, query: str, *params: Any) -> list[asyncpg.Record]:
+        """Fetch all rows."""
+        pool = self._db_pool.get_pool()
+        async with pool.acquire() as conn:
+            return await conn.fetch(query, *params)
         
         async with self._pool.acquire() as connection:
             yield connection

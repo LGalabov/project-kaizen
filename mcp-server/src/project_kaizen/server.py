@@ -3,14 +3,13 @@
 import logging
 from typing import Any, Literal
 
-import asyncpg
 from fastmcp.server import FastMCP
 from fastmcp.tools.tool import ToolResult
 from mcp.types import TextContent
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from .core import knowledge_ops, namespace_ops, scope_ops
+# Direct service calls through container - no adapters needed
 from .models.knowledge import (
     DeleteKnowledgeOutput,
     GetTaskContextOutput,
@@ -18,6 +17,7 @@ from .models.knowledge import (
     UpdateKnowledgeOutput,
     WriteKnowledgeOutput,
 )
+from .types import GLOBAL_DEFAULT_SCOPE, NamespaceStyle, NamespaceStyleLiteral, TaskSize, TaskSizeLiteral
 from .models.namespace import (
     CreateNamespaceOutput,
     DeleteNamespaceOutput,
@@ -29,21 +29,13 @@ from .models.scope import (
     DeleteScopeOutput,
     UpdateScopeOutput,
 )
+from .container import get_container
+from .utils.mcp import create_tool_result, handle_tool_error
 from .utils.logging import log_error_with_context, log_mcp_tool_call
 
 # Set up logging
 logger = logging.getLogger("project-kaizen")
 logger.setLevel(logging.INFO)
-
-# Global database pool - initialized by main()
-_db_pool: asyncpg.Pool | None = None
-
-
-def get_db_pool() -> asyncpg.Pool:
-    """Get the global database pool."""
-    if _db_pool is None:
-        raise RuntimeError("Database pool not initialized. Call main() first.")
-    return _db_pool
 
 
 async def main(
@@ -61,32 +53,12 @@ async def main(
     logger.info(f"Connecting to PostgreSQL: {db_url}")
     logger.info(f"Transport: {transport}")
 
-    # Build connection URL if components provided, otherwise use db_url directly
-    if db_url.startswith("postgresql://"):
-        connection_url = db_url
-    else:
-        # Assume db_url is host, build full URL
-        connection_url = f"postgresql://{db_user}:{db_password}@{db_url}/{db_name}"
-
-    # Create global connection pool
-    global _db_pool
+    # Initialize database through container
+    container = get_container()
     try:
-        _db_pool = await asyncpg.create_pool(connection_url, min_size=1, max_size=5)
-        logger.info(
-            f"Connected to PostgreSQL pool: {connection_url.split('@')[0]}@{connection_url.split('@')[1]}"
-        )
+        await container.initialize_database(db_url, db_user, db_password, db_name)
     except Exception as e:
-        logger.error(f"Failed to connect to PostgreSQL: {e}")
-        exit(1)
-
-    # Verify connection with a simple query
-    try:
-        async with _db_pool.acquire() as conn:
-            await conn.execute("SELECT 1")
-        logger.info("Database connection verified")
-    except Exception as e:
-        logger.error(f"Database connection test failed: {e}")
-        await _db_pool.close()
+        logger.error(f"Failed to initialize database pool: {e}")
         exit(1)
 
     logger.info("MCP server ready with database pool")
@@ -107,9 +79,7 @@ async def main(
                 raise ValueError(f"Unsupported transport: {transport}")
     finally:
         # Clean up database pool
-        if _db_pool:
-            await _db_pool.close()
-        logger.info("Database pool closed")
+        await container.close_resources()
 
 
 # === MCP SERVER INSTANCE ===
@@ -132,29 +102,24 @@ async def get_namespaces(
     namespace: str | None = Field(
         default=None, description="Optional exact match filter for specific namespace"
     ),
-    style: str = Field(
+    style: NamespaceStyleLiteral = Field(
         default="short", description="Output detail level: short, long, or details"
     ),
 ) -> ToolResult:
     """Discover existing namespaces and scopes to decide whether to create new or reuse existing organizational structures."""
-    from .models.namespace import NamespaceStyle
 
     # Convert string to enum
     style_enum = NamespaceStyle(style)
 
     log_mcp_tool_call("get_namespaces", namespace=namespace, style=style_enum.value)
     try:
-        namespaces_dict = await namespace_ops.list_namespaces(namespace, style_enum)
+        container = get_container()
+        service = container.namespace_service()
+        namespaces_dict = await service.get_all_namespaces(namespace, style_enum)
         output = GetNamespacesOutput(namespaces=namespaces_dict)
-        return ToolResult(
-            content=[TextContent(type="text", text=output.model_dump_json(exclude_none=True))],
-            structured_content=output.model_dump(exclude_none=True)
-        )
+        return create_tool_result(output)
     except Exception as e:
-        log_error_with_context(
-            e, {"tool": "get_namespaces", "namespace": namespace, "style": style}
-        )
-        raise
+        handle_tool_error(e, "get_namespaces", namespace=namespace, style=style)
 
 
 @mcp.tool(
@@ -175,17 +140,13 @@ async def create_namespace(
     """Create new namespace with automatic 'default' scope for immediate knowledge storage."""
     log_mcp_tool_call("create_namespace", name=name, description=description)
     try:
-        result = await namespace_ops.create_namespace(name, description)
+        container = get_container()
+        service = container.namespace_service()
+        result = await service.create_namespace(name, description)
         output = CreateNamespaceOutput(**result)
-        return ToolResult(
-            content=[TextContent(type="text", text=output.model_dump_json(exclude_none=True))],
-            structured_content=output.model_dump(exclude_none=True)
-        )
+        return create_tool_result(output)
     except Exception as e:
-        log_error_with_context(
-            e, {"tool": "create_namespace", "name": name, "description": description}
-        )
-        raise
+        handle_tool_error(e, "create_namespace", name=name, description=description)
 
 
 @mcp.tool(
@@ -214,23 +175,13 @@ async def update_namespace(
         description=description,
     )
     try:
-        result = await namespace_ops.update_namespace(name, new_name, description)
+        container = get_container()
+        service = container.namespace_service()
+        result = await service.update_namespace(name, new_name, description)
         output = UpdateNamespaceOutput(**result)
-        return ToolResult(
-            content=[TextContent(type="text", text=output.model_dump_json(exclude_none=True))],
-            structured_content=output.model_dump(exclude_none=True)
-        )
+        return create_tool_result(output)
     except Exception as e:
-        log_error_with_context(
-            e,
-            {
-                "tool": "update_namespace",
-                "name": name,
-                "new_name": new_name,
-                "description": description,
-            },
-        )
-        raise
+        handle_tool_error(e, "update_namespace", name=name, new_name=new_name, description=description)
 
 
 @mcp.tool(
@@ -248,7 +199,9 @@ async def delete_namespace(
     """Remove namespace and all associated scopes and knowledge entries."""
     log_mcp_tool_call("delete_namespace", name=name)
     try:
-        result = await namespace_ops.delete_namespace(name)
+        container = get_container()
+        service = container.namespace_service()
+        result = await service.delete_namespace(name)
         output = DeleteNamespaceOutput(**result)
         return ToolResult(
             content=[TextContent(type="text", text=output.model_dump_json())],
@@ -286,10 +239,9 @@ async def create_scope(
         parents=parents,
     )
     try:
-        namespace_name, scope_name = scope.split(":", 1)
-        result = await scope_ops.create_scope(
-            namespace_name, scope_name, description, parents or []
-        )
+        container = get_container()
+        service = container.scope_service()
+        result = await service.create_scope(scope, description, parents)
         return CreateScopeOutput(**result)
     except Exception as e:
         log_error_with_context(
@@ -334,7 +286,9 @@ async def update_scope(
         parents=parents,
     )
     try:
-        result = await scope_ops.update_scope(scope, new_scope, description, parents)
+        container = get_container()
+        service = container.scope_service()
+        result = await service.update_scope(scope, new_scope, description, parents)
         return UpdateScopeOutput(**result)
     except Exception as e:
         log_error_with_context(
@@ -365,7 +319,9 @@ async def delete_scope(
     """Remove scope and all associated knowledge entries."""
     log_mcp_tool_call("delete_scope", scope=scope)
     try:
-        result = await scope_ops.delete_scope(scope)
+        container = get_container()
+        service = container.scope_service()
+        result = await service.delete_scope(scope)
         return DeleteScopeOutput(**result)
     except Exception as e:
         log_error_with_context(e, {"tool": "delete_scope", "scope": scope})
@@ -397,7 +353,9 @@ async def write_knowledge(
         context=context[:50],
     )
     try:
-        knowledge_id = await knowledge_ops.create_knowledge_entry(
+        container = get_container()
+        service = container.knowledge_service()
+        knowledge_id = await service.create_knowledge_entry(
             scope, content, context
         )
         return WriteKnowledgeOutput(id=knowledge_id, scope=scope)
@@ -443,7 +401,9 @@ async def update_knowledge(
         scope=scope,
     )
     try:
-        final_scope = await knowledge_ops.update_knowledge_entry(
+        container = get_container()
+        service = container.knowledge_service()
+        final_scope = await service.update_knowledge_entry(
             id, content, context, scope
         )
         return UpdateKnowledgeOutput(id=id, scope=final_scope)
@@ -475,7 +435,9 @@ async def delete_knowledge(
     """Remove knowledge entry from system."""
     log_mcp_tool_call("delete_knowledge", id=id)
     try:
-        deleted_id = await knowledge_ops.delete_knowledge_entry(id)
+        container = get_container()
+        service = container.knowledge_service()
+        deleted_id = await service.delete_knowledge_entry(id)
         return DeleteKnowledgeOutput(id=deleted_id)
     except Exception as e:
         log_error_with_context(e, {"tool": "delete_knowledge", "id": id})
@@ -504,12 +466,14 @@ async def resolve_knowledge_conflict(
         suppressed_count=len(suppressed_ids),
     )
     try:
+        container = get_container()
+        service = container.knowledge_service()
         (
-            result_active_id,
-            result_suppressed_ids,
-        ) = await knowledge_ops.resolve_knowledge_conflicts(active_id, suppressed_ids)
+            resolved_active_id,
+            resolved_suppressed_ids,
+        ) = await service.resolve_knowledge_conflicts(active_id, suppressed_ids)
         return ResolveKnowledgeConflictOutput(
-            active_id=result_active_id, suppressed_ids=result_suppressed_ids
+            active_id=resolved_active_id, suppressed_ids=resolved_suppressed_ids
         )
     except Exception as e:
         log_error_with_context(
@@ -540,12 +504,11 @@ async def get_task_context(
         default=None,
         description="Optional scope to limit search (namespace:scope_name)",
     ),
-    task_size: str | None = Field(
-        default=None, description="Task complexity: small, medium, large, or xlarge"
+    task_size: TaskSizeLiteral | None = Field(
+        default=None, description="Task complexity: XS, S, M, L, or XL"
     ),
 ) -> GetTaskContextOutput:
     """AI provides multiple targeted queries for complex tasks, MCP returns relevant knowledge organized by scope hierarchy."""
-    from .models.knowledge import TaskSize
 
     # Convert string to enum if provided
     task_size_enum = TaskSize(task_size) if task_size else None
@@ -559,8 +522,10 @@ async def get_task_context(
     try:
         task_size_value = task_size_enum.value if task_size_enum else None
         # get_task_context_knowledge requires scope to be non-None, provide default
-        effective_scope = scope or "global:default"
-        results = await knowledge_ops.get_task_context_knowledge(
+        effective_scope = scope or GLOBAL_DEFAULT_SCOPE
+        container = get_container()
+        service = container.knowledge_service()
+        results = await service.get_task_context_knowledge(
             queries, effective_scope, task_size_value
         )
         return GetTaskContextOutput(results=results)

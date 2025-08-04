@@ -8,6 +8,7 @@ from testcontainers.postgres import PostgresContainer  # type: ignore[import-unt
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 from typing import AsyncGenerator, Any
+from project_kaizen.types import GLOBAL_NAMESPACE
 
 # Path to the schema file (relative to mcp-server directory)
 SCHEMA_PATH = Path(__file__).parent.parent.parent / "database" / "01-initial-schema.sql"
@@ -67,9 +68,9 @@ async def clean_db(
     # Insert global namespace (triggers will create default scope automatically)
     await conn.execute("""
         INSERT INTO namespaces (name, description) 
-        VALUES ('global', 'Universal knowledge accessible everywhere')
+        VALUES ($1, 'Universal knowledge accessible everywhere')
         ON CONFLICT (name) DO NOTHING;
-    """)
+    """, GLOBAL_NAMESPACE)
 
     yield conn
     await conn.close()

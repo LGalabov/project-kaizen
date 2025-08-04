@@ -1,16 +1,8 @@
 """Pydantic models for namespace MCP actions."""
 
-from enum import Enum
-
 from pydantic import BaseModel, Field
 
-
-class NamespaceStyle(str, Enum):
-    """Output style options for namespace queries."""
-
-    SHORT = "short"
-    LONG = "long"
-    DETAILS = "details"
+from ..types import NamespaceStyle
 
 
 class NamespaceInfo(BaseModel):
