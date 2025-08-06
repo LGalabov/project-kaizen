@@ -17,7 +17,13 @@ from .models.knowledge import (
     UpdateKnowledgeOutput,
     WriteKnowledgeOutput,
 )
-from .types import GLOBAL_DEFAULT_SCOPE, NamespaceStyle, NamespaceStyleLiteral, TaskSize, TaskSizeLiteral
+from .types import (
+    GLOBAL_DEFAULT_SCOPE,
+    NamespaceStyle,
+    NamespaceStyleLiteral,
+    TaskSize,
+    TaskSizeLiteral,
+)
 from .models.namespace import (
     CreateNamespaceOutput,
     DeleteNamespaceOutput,
@@ -136,21 +142,19 @@ async def create_namespace(
         min_length=2,
         max_length=64,
         pattern=r"^[a-z0-9\-_]+$",
-        description="Namespace name (lowercase, alphanumeric, hyphens, underscores)"
+        description="Namespace name (lowercase, alphanumeric, hyphens, underscores)",
     ),
     description: str = Field(
-        min_length=2, 
-        max_length=64,
-        description="Human-readable namespace description"
+        min_length=2, max_length=64, description="Human-readable namespace description"
     ),
 ) -> ToolResult:
     """Create new namespace with automatic 'default' scope for immediate knowledge storage."""
     log_mcp_tool_call("create_namespace", name=name, description=description)
-    
+
     # Validate description is not empty or whitespace only
     if not description or not description.strip():
         raise ValueError("Description cannot be empty or whitespace only")
-    
+
     try:
         container = get_container()
         service = container.namespace_service()
@@ -176,22 +180,22 @@ async def update_namespace(
         default=None,
         min_length=2,
         max_length=64,
-        pattern=r"^[a-z0-9\-_]+$", 
-        description="New namespace name (optional)"
+        pattern=r"^[a-z0-9\-_]+$",
+        description="New namespace name (optional)",
     ),
     description: str | None = Field(
         default=None,
         min_length=2,
         max_length=64,
-        description="Updated namespace description (optional)"
+        description="Updated namespace description (optional)",
     ),
 ) -> ToolResult:
     """Update namespace name and/or description with automatic reference updating."""
-    
+
     # Validate description is not empty or whitespace only if provided
     if description is not None and (not description or not description.strip()):
         raise ValueError("Description cannot be empty or whitespace only")
-    
+
     log_mcp_tool_call(
         "update_namespace",
         name=name,
@@ -205,7 +209,9 @@ async def update_namespace(
         output = UpdateNamespaceOutput(**result)
         return create_tool_result(output)
     except Exception as e:
-        handle_tool_error(e, "update_namespace", name=name, new_name=new_name, description=description)
+        handle_tool_error(
+            e, "update_namespace", name=name, new_name=new_name, description=description
+        )
 
 
 @mcp.tool(
@@ -229,7 +235,7 @@ async def delete_namespace(
         output = DeleteNamespaceOutput(**result)
         return ToolResult(
             content=[TextContent(type="text", text=output.model_dump_json())],
-            structured_content=output
+            structured_content=output,
         )
     except Exception as e:
         log_error_with_context(e, {"tool": "delete_namespace", "name": name})
@@ -252,23 +258,21 @@ async def create_scope(
     scope: str = Field(
         min_length=5,
         max_length=129,
-        description="Full scope identifier (namespace:scope_name)"
+        description="Full scope identifier (namespace:scope_name)",
     ),
     description: str = Field(
-        min_length=2,
-        max_length=64,
-        description="Human-readable scope description"
+        min_length=2, max_length=64, description="Human-readable scope description"
     ),
     parents: list[str] | None = Field(
         default=None, description="Optional parent scope identifiers"
     ),
 ) -> CreateScopeOutput:
     """Create new scope within namespace with automatic 'default' parent inheritance."""
-    
+
     # Validate description is not empty or whitespace only
     if not description or not description.strip():
         raise ValueError("Description cannot be empty or whitespace only")
-    
+
     log_mcp_tool_call(
         "create_scope",
         scope=scope,
@@ -308,24 +312,24 @@ async def update_scope(
         default=None,
         min_length=5,
         max_length=129,
-        description="New scope identifier (optional)"
+        description="New scope identifier (optional)",
     ),
     description: str | None = Field(
         default=None,
         min_length=2,
         max_length=64,
-        description="Updated scope description (optional)"
+        description="Updated scope description (optional)",
     ),
     parents: list[str] | None = Field(
         default=None, description="Updated parent scope identifiers (optional)"
     ),
 ) -> UpdateScopeOutput:
     """Update scope name, description, and parent relationships with automatic reference updating."""
-    
+
     # Validate description is not empty or whitespace only if provided
     if description is not None and (not description or not description.strip()):
         raise ValueError("Description cannot be empty or whitespace only")
-    
+
     log_mcp_tool_call(
         "update_scope",
         scope=scope,
@@ -403,9 +407,7 @@ async def write_knowledge(
     try:
         container = get_container()
         service = container.knowledge_service()
-        knowledge_id = await service.create_knowledge_entry(
-            scope, content, context
-        )
+        knowledge_id = await service.create_knowledge_entry(scope, content, context)
         return WriteKnowledgeOutput(id=knowledge_id, scope=scope)
     except Exception as e:
         log_error_with_context(
@@ -451,9 +453,7 @@ async def update_knowledge(
     try:
         container = get_container()
         service = container.knowledge_service()
-        final_scope = await service.update_knowledge_entry(
-            id, content, context, scope
-        )
+        final_scope = await service.update_knowledge_entry(id, content, context, scope)
         return UpdateKnowledgeOutput(id=id, scope=final_scope)
     except Exception as e:
         log_error_with_context(

@@ -9,47 +9,59 @@ from .base import BaseRepository
 
 class KnowledgeRepository(BaseRepository):
     """Repository for knowledge database operations."""
-    
+
     async def create(self, scope_id: int, content: str, context: str) -> str:
         """Create knowledge entry and return ID."""
-        result = await self._fetch_one("""
+        result = await self._fetch_one(
+            """
             INSERT INTO knowledge (scope_id, content, context)
             VALUES ($1, $2, $3)
             RETURNING id
-        """, scope_id, content, context)
+        """,
+            scope_id,
+            content,
+            context,
+        )
 
         if not result:
             raise ValueError("Failed to create knowledge entry")
 
-        log_database_operation("INSERT", query="write_knowledge", params=[scope_id, len(content), len(context)])
+        log_database_operation(
+            "INSERT",
+            query="write_knowledge",
+            params=[scope_id, len(content), len(context)],
+        )
         return str(result["id"])
-        
+
     async def get_by_id(self, entry_id: str) -> dict[str, Any] | None:
         """Get knowledge entry with scope information."""
-        result = await self._fetch_one("""
+        result = await self._fetch_one(
+            """
             SELECT k.scope_id, k.content, k.context, n.name || ':' || s.name as scope_name
             FROM knowledge k
             JOIN scopes s ON k.scope_id = s.id
             JOIN namespaces n ON s.namespace_id = n.id
             WHERE k.id = $1
-        """, entry_id)
-        
+        """,
+            entry_id,
+        )
+
         if not result:
             return None
-            
+
         return {
             "scope_id": result["scope_id"],
             "content": result["content"],
             "context": result["context"],
-            "scope_name": result["scope_name"]
+            "scope_name": result["scope_name"],
         }
-    
+
     async def update(
-        self, 
-        entry_id: str, 
+        self,
+        entry_id: str,
         content: str | None = None,
-        context: str | None = None, 
-        scope_id: int | None = None
+        context: str | None = None,
+        scope_id: int | None = None,
     ) -> None:
         """Update knowledge entry fields."""
         set_clauses: list[str] = []
@@ -91,33 +103,37 @@ class KnowledgeRepository(BaseRepository):
             raise ValueError(f"Failed to update knowledge entry '{entry_id}'")
 
         log_database_operation("UPDATE", query="update_knowledge", params=[entry_id])
-    
+
     async def delete(self, entry_id: str) -> None:
         """Delete knowledge entry."""
-        result = await self._fetch_one("""
+        result = await self._fetch_one(
+            """
             DELETE FROM knowledge WHERE id = $1
             RETURNING id
-        """, entry_id)
+        """,
+            entry_id,
+        )
 
         if not result:
             raise ValueError(f"Knowledge entry '{entry_id}' not found")
 
         log_database_operation("DELETE", query="delete_knowledge", params=[entry_id])
-    
+
     async def mark_suppressed(self, entry_id: str, active_id: str) -> None:
         """Mark knowledge entry as suppressed by another entry."""
-        await self._execute_query("""
+        await self._execute_query(
+            """
             UPDATE knowledge
             SET context = context || ' [SUPPRESSED-BY-' || $1 || ']',
                 updated_at = NOW()
             WHERE id = $2
-        """, active_id, entry_id)
-    
+        """,
+            active_id,
+            entry_id,
+        )
+
     async def search_by_queries(
-        self, 
-        queries: list[str], 
-        scope_ids: list[int], 
-        task_size: str | None = None
+        self, queries: list[str], scope_ids: list[int], task_size: str | None = None
     ) -> list[asyncpg.Record]:
         """Search knowledge entries using full-text search."""
         # Create search terms from queries
@@ -144,5 +160,9 @@ class KnowledgeRepository(BaseRepository):
 
         query += " ORDER BY rank DESC, k.updated_at DESC LIMIT 50"
 
-        log_database_operation("SELECT", query="get_task_context_search", params=[search_terms, len(scope_ids)])
+        log_database_operation(
+            "SELECT",
+            query="get_task_context_search",
+            params=[search_terms, len(scope_ids)],
+        )
         return await self._fetch_all(query, *params)

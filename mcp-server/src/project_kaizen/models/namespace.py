@@ -34,16 +34,20 @@ class GetNamespacesInput(BaseModel):
 
 class ScopeData(BaseModel):
     """Scope data within namespace for spec compliance."""
-    
+
     description: str = Field(description="Scope description")
-    parents: list[str] | None = Field(default=None, description="Parent scope names (details style only)")
+    parents: list[str] | None = Field(
+        default=None, description="Parent scope names (details style only)"
+    )
 
 
 class NamespaceData(BaseModel):
     """Namespace data for spec compliance."""
-    
+
     description: str = Field(description="Namespace description")
-    scopes: dict[str, ScopeData] | None = Field(default=None, description="Nested scopes (long/details style only)")
+    scopes: dict[str, ScopeData] | None = Field(
+        default=None, description="Nested scopes (long/details style only)"
+    )
 
 
 class GetNamespacesOutput(BaseModel):

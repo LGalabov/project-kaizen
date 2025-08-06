@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=75.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-kaizen-mcp"
+version = "1.0.0"
+description = "Project Kaizen MCP server - Knowledge management for AI context"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL"}
+authors = [
+    {name = "Lyubomir Galabov", email = "lvgalabov@gmail.com"},
+]
+keywords = ["mcp", "ai", "knowledge-management", "fastmcp"]
+
+dependencies = [
+    "fastmcp>=2.11.1",
+    "asyncpg>=0.30.0",
+    "pydantic>=2.11.7",
+    "click>=8.2.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.17.1",
+    "ruff>=0.8.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "testcontainers[postgres]>=4.12.0",
+]
+
+[project.scripts]
+project-kaizen-mcp = "project_kaizen.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["project_kaizen*"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "testcontainers.*",
+    "asyncpg.*",
+    "fastmcp.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["project_kaizen.server"]
+warn_return_any = false
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B008"]  # FastMCP uses Field() in defaults
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

@@ -15,20 +15,20 @@ def create_tool_result(output: BaseModel | dict[str, Any] | str) -> ToolResult:
     if isinstance(output, BaseModel):
         # Pydantic model output
         return ToolResult(
-            content=[TextContent(type="text", text=output.model_dump_json(exclude_none=True))],
-            structured_content=output.model_dump(exclude_none=True)
+            content=[
+                TextContent(type="text", text=output.model_dump_json(exclude_none=True))
+            ],
+            structured_content=output.model_dump(exclude_none=True),
         )
     elif isinstance(output, dict):
         # Dict output - convert to JSON
         return ToolResult(
             content=[TextContent(type="text", text=json.dumps(output, indent=2))],
-            structured_content=output
+            structured_content=output,
         )
     else:
         # String or other output
-        return ToolResult(
-            content=[TextContent(type="text", text=str(output))]
-        )
+        return ToolResult(content=[TextContent(type="text", text=str(output))])
 
 
 def handle_tool_error(e: Exception, tool_name: str, **context: Any) -> NoReturn:

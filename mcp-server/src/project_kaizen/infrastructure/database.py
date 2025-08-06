@@ -8,10 +8,10 @@ logger = logging.getLogger("project-kaizen")
 
 class DatabasePool:
     """Manages PostgreSQL connection pool lifecycle."""
-    
+
     def __init__(self) -> None:
         self._pool: asyncpg.Pool | None = None
-    
+
     async def initialize(
         self,
         db_url: str,
@@ -24,14 +24,18 @@ class DatabasePool:
             connection_url = db_url
         else:
             connection_url = f"postgresql://{db_user}:{db_password}@{db_url}/{db_name}"
-        
+
         try:
-            self._pool = await asyncpg.create_pool(connection_url, min_size=1, max_size=5)
-            logger.info(f"Connected to PostgreSQL pool: {connection_url.split('@')[0]}@{connection_url.split('@')[1]}")
+            self._pool = await asyncpg.create_pool(
+                connection_url, min_size=1, max_size=5
+            )
+            logger.info(
+                f"Connected to PostgreSQL pool: {connection_url.split('@')[0]}@{connection_url.split('@')[1]}"
+            )
         except Exception as e:
             logger.error(f"Failed to connect to PostgreSQL: {e}")
             raise
-        
+
         # Verify connection
         try:
             async with self._pool.acquire() as conn:
@@ -41,13 +45,15 @@ class DatabasePool:
             logger.error(f"Database connection test failed: {e}")
             await self._pool.close()
             raise
-    
+
     def get_pool(self) -> asyncpg.Pool:
         """Get the connection pool."""
         if self._pool is None:
-            raise RuntimeError("Database pool not initialized. Call initialize() first.")
+            raise RuntimeError(
+                "Database pool not initialized. Call initialize() first."
+            )
         return self._pool
-    
+
     async def close(self) -> None:
         """Close the connection pool."""
         if self._pool:
