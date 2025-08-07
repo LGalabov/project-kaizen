@@ -5,7 +5,7 @@ from typing import Any, Literal
 import asyncpg
 
 from project_kaizen.config import config
-from project_kaizen.models import parse_scope
+from project_kaizen.utils import parse_scope
 
 # Global connection pool (lazy initialization)
 _pool: asyncpg.Pool | None = None
@@ -61,9 +61,9 @@ async def get_namespaces(
             # Add scopes for long and details styles
             if style in ["long", "details"]:
                 scopes_query = """
-                    SELECT s.name, s.description 
-                    FROM scopes s 
-                    JOIN namespaces n ON s.namespace_id = n.id 
+                    SELECT s.name, s.description
+                    FROM scopes s
+                    JOIN namespaces n ON s.namespace_id = n.id
                     WHERE n.name = $1
                     ORDER BY s.name
                 """
@@ -152,7 +152,7 @@ async def update_namespace(
         # Validation ensures at least one update is provided
         params.append(namespace)
         query = f"""
-            UPDATE namespaces 
+            UPDATE namespaces
             SET {", ".join(updates)}, updated_at = NOW()
             WHERE name = ${param_count}
             RETURNING name, description
@@ -177,7 +177,7 @@ async def delete_namespace(namespace: str) -> dict[str, Any]:
             # Get statistics before deletion
             stats = await conn.fetchrow(
                 """
-                SELECT 
+                SELECT
                     COUNT(DISTINCT s.id) as scope_count,
                     COUNT(DISTINCT k.id) as knowledge_count
                 FROM namespaces n
@@ -220,7 +220,7 @@ async def create_scope(scope: str, description: str, parents: list[str] | None) 
 
             # Create scope - trigger will add default parent
             scope_id = await conn.fetchval(
-                """INSERT INTO scopes (namespace_id, name, description) 
+                """INSERT INTO scopes (namespace_id, name, description)
                 VALUES ($1, $2, $3) RETURNING id""",
                 ns_id,
                 scope_name,
@@ -247,7 +247,7 @@ async def create_scope(scope: str, description: str, parents: list[str] | None) 
                         # Add parent relationship (skip if would be self-reference)
                         await conn.execute(
                             """
-                            INSERT INTO scope_parents (child_scope_id, parent_scope_id) 
+                            INSERT INTO scope_parents (child_scope_id, parent_scope_id)
                             VALUES ($1, $2)
                             ON CONFLICT DO NOTHING
                             """,
@@ -326,7 +326,7 @@ async def update_scope(
                 params.append(scope_id)
                 await conn.execute(
                     f"""
-                    UPDATE scopes 
+                    UPDATE scopes
                     SET {", ".join(updates)}, updated_at = NOW()
                     WHERE id = ${param_count}
                     """,
@@ -428,8 +428,8 @@ async def write_knowledge(
         # Insert knowledge entry (search vectors are auto-generated)
         knowledge_id = await conn.fetchval(
             """
-            INSERT INTO knowledge (scope_id, content, context, task_size) 
-            VALUES ($1, $2, $3, $4) 
+            INSERT INTO knowledge (scope_id, content, context, task_size)
+            VALUES ($1, $2, $3, $4)
             RETURNING id
             """,
             scope_id,
@@ -438,11 +438,11 @@ async def write_knowledge(
             task_size,
         )
 
-        return {"id": str(knowledge_id), "scope": scope}
+        return {"id": knowledge_id, "scope": scope}
 
 
 async def update_knowledge(
-    id: str,
+    knowledge_id: int,
     content: str | None,
     context: str | None,
     scope: str | None,
@@ -492,9 +492,9 @@ async def update_knowledge(
             param_count += 1
 
         # Validation ensures at least one update is provided
-        params.append(int(id))
+        params.append(knowledge_id)
         query = f"""
-            UPDATE knowledge 
+            UPDATE knowledge
             SET {", ".join(updates)}, updated_at = NOW()
             WHERE id = ${param_count}
             RETURNING id
@@ -502,37 +502,35 @@ async def update_knowledge(
 
         result = await conn.fetchval(query, *params)
         if not result:
-            raise ValueError(f"Knowledge entry {id} not found")
+            raise ValueError(f"Knowledge entry {knowledge_id} not found")
 
-        return {"id": id, "scope": scope or "unchanged"}
+        return {"id": knowledge_id, "scope": scope or "unchanged"}
 
 
-async def delete_knowledge(id: str) -> dict[str, Any]:
+async def delete_knowledge(knowledge_id: int) -> dict[str, Any]:
     """Delete knowledge entry."""
     pool = await get_pool()
 
     async with pool.acquire() as conn:
-        deleted = await conn.execute("DELETE FROM knowledge WHERE id = $1", int(id))
+        deleted = await conn.execute("DELETE FROM knowledge WHERE id = $1", knowledge_id)
 
         if "DELETE 0" in deleted:
-            raise ValueError(f"Knowledge entry {id} not found")
+            raise ValueError(f"Knowledge entry {knowledge_id} not found")
 
-        return {"id": id}
+        return {"id": knowledge_id}
 
 
-async def resolve_conflict(active_id: str, suppressed_ids: list[str]) -> dict[str, Any]:
+async def resolve_conflict(active_id: int, suppressed_ids: list[int]) -> dict[str, Any]:
     """Mark knowledge entries as suppressed using knowledge_conflicts table."""
     pool = await get_pool()
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            # Convert IDs to integers
-            active_int_id = int(active_id)
-            suppressed_int_ids = [int(sid) for sid in suppressed_ids]
+            # IDs are already integers, no conversion needed
 
             # Check if active entry exists
             exists = await conn.fetchval(
-                "SELECT EXISTS(SELECT 1 FROM knowledge WHERE id = $1)", active_int_id
+                "SELECT EXISTS(SELECT 1 FROM knowledge WHERE id = $1)", active_id
             )
             if not exists:
                 raise ValueError(f"Active knowledge entry {active_id} not found")
@@ -543,8 +541,8 @@ async def resolve_conflict(active_id: str, suppressed_ids: list[str]) -> dict[st
                 INSERT INTO knowledge_conflicts (active_knowledge_id, suppressed_knowledge_ids)
                 VALUES ($1, $2)
                 """,
-                active_int_id,
-                suppressed_int_ids,
+                active_id,
+                suppressed_ids,
             )
 
             return {"active_id": active_id, "suppressed_ids": suppressed_ids}
@@ -552,7 +550,7 @@ async def resolve_conflict(active_id: str, suppressed_ids: list[str]) -> dict[st
 
 async def get_task_context(
     queries: list[str], scope: str, task_size: Literal["XS", "S", "M", "L", "XL"] | None
-) -> dict[str, dict[str, str]]:
+) -> dict[str, dict[int, str]]:
     """Search knowledge using database function with scope hierarchy."""
     pool = await get_pool()
 
@@ -563,11 +561,11 @@ async def get_task_context(
         )
 
         # Organize results by scope
-        result: dict[str, dict[str, str]] = {}
+        result: dict[str, dict[int, str]] = {}
         for row in rows:
             scope_key = row["qualified_scope_name"]
             if scope_key not in result:
                 result[scope_key] = {}
-            result[scope_key][str(row["knowledge_id"])] = row["content"]
+            result[scope_key][row["knowledge_id"]] = row["content"]
 
         return result

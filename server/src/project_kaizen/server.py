@@ -1,14 +1,18 @@
 """Project Kaizen MCP Server - FastMCP server with all tools."""
 
-from typing import Any, Literal
+from typing import Any
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
 
-from project_kaizen.models import (
-    validate_knowledge,
+from project_kaizen.validators import (
+    validate_content,
+    validate_context,
+    validate_description,
     validate_namespace,
     validate_scope,
+    validate_style,
+    validate_task_size,
 )
 
 
@@ -32,20 +36,19 @@ mcp = FastMCP("project-kaizen")
 @mcp.tool
 async def get_namespaces(
     ctx: Context,
-    namespace: str | None = Field(
-        default=None, description="Optional exact match filter for specific namespace"
-    ),
-    style: Literal["short", "long", "details"] = Field(
-        default="short", description="Output detail level: short, long, or details"
+    namespace: str = Field(description="Filter by name • Optional • Text • Ex: 'shopcraft'"),
+    style: str = Field(
+        description="Detail level • Optional • Choice (short/long/details) • Ex: 'details'"
     ),
 ) -> dict[str, Any]:
     """Discover existing namespaces and scopes for organizational structure decisions."""
     await ctx.info(f"Getting namespaces with filter={namespace}, style={style}")
 
-    try:
-        if namespace:
-            validate_namespace(namespace)
+    validate_namespace(namespace)
+    style = style or "short"
+    validate_style(style)
 
+    try:
         result = await get_db().get_namespaces(namespace, style)
 
         await ctx.debug(f"Found {len(result.get('namespaces', {}))} namespaces")
@@ -59,17 +62,18 @@ async def get_namespaces(
 @mcp.tool
 async def create_namespace(
     ctx: Context,
-    namespace: str = Field(
-        ..., description="Namespace name (lowercase, alphanumeric, hyphens, underscores)"
+    namespace: str = Field(description="Namespace name • Required • Text • Ex: 'shopcraft'"),
+    description: str = Field(
+        description="Description • Required • Text • Ex: 'E-commerce platform'"
     ),
-    description: str = Field(..., description="Human-readable namespace description"),
 ) -> dict[str, Any]:
     """Create new namespace with automatic 'default' scope for immediate knowledge storage."""
     await ctx.info(f"Creating namespace '{namespace}'")
 
-    try:
-        validate_namespace(namespace)
+    validate_namespace(namespace)
+    validate_description(description)
 
+    try:
         result = await get_db().create_namespace(namespace, description)
 
         await ctx.info(f"Created namespace '{namespace}' with default scope")
@@ -83,24 +87,24 @@ async def create_namespace(
 @mcp.tool
 async def update_namespace(
     ctx: Context,
-    namespace: str = Field(..., description="Current namespace name"),
-    new_namespace: str | None = Field(default=None, description="New namespace name (optional)"),
-    new_description: str | None = Field(
-        default=None, description="Updated namespace description (optional)"
+    namespace: str = Field(description="Namespace to update • Required • Text • Ex: 'shopcraft'"),
+    new_namespace: str = Field(description="New name • Optional • Text • Ex: 'shop-api'"),
+    new_description: str = Field(
+        description="New description • Optional • Text • Ex: 'Shop API services'"
     ),
 ) -> dict[str, Any]:
     """Update namespace name and/or description with automatic reference updating."""
     await ctx.info(f"Updating namespace '{namespace}'")
 
+    validate_namespace(namespace)
+
+    if not (new_namespace or new_description):
+        raise ValueError("At least one of new_namespace or new_description must be provided")
+
+    validate_namespace(new_namespace)
+    validate_description(new_description)
+
     try:
-        # Validate that at least one update parameter is provided
-        if not new_namespace and not new_description:
-            raise ValueError("At least one of new_namespace or new_description must be provided")
-
-        validate_namespace(namespace)
-        if new_namespace:
-            validate_namespace(new_namespace)
-
         result = await get_db().update_namespace(namespace, new_namespace, new_description)
 
         await ctx.info(
@@ -115,14 +119,15 @@ async def update_namespace(
 
 @mcp.tool
 async def delete_namespace(
-    ctx: Context, namespace: str = Field(..., description="Namespace name to delete")
+    ctx: Context,
+    namespace: str = Field(description="Namespace to delete • Required • Text • Ex: 'old-project'"),
 ) -> dict[str, Any]:
     """Remove namespace and all associated scopes and knowledge entries."""
     await ctx.warning(f"Deleting namespace '{namespace}' and all its data")
 
-    try:
-        validate_namespace(namespace)
+    validate_namespace(namespace)
 
+    try:
         result = await get_db().delete_namespace(namespace)
 
         await ctx.info(
@@ -144,21 +149,24 @@ async def delete_namespace(
 @mcp.tool
 async def create_scope(
     ctx: Context,
-    scope: str = Field(..., description="Full scope identifier (namespace:scope_name)"),
-    description: str = Field(..., description="Human-readable scope description"),
-    parents: list[str] | None = Field(
-        default=None, description="Optional parent scope identifiers"
+    scope: str = Field(description="Scope identifier • Required • Text • Ex: 'shopcraft:backend'"),
+    description: str = Field(
+        description="Description • Required • Text • Ex: 'Backend API services'"
+    ),
+    parents: list[str] = Field(
+        description="Parent scopes • Optional • List • Ex: ['shopcraft:default']"
     ),
 ) -> dict[str, Any]:
     """Create new scope within namespace with automatic 'default' parent inheritance."""
     await ctx.info(f"Creating scope '{scope}'")
 
-    try:
-        validate_scope(scope)
-        if parents:
-            for parent in parents:
-                validate_scope(parent)
+    validate_scope(scope)
+    validate_description(description)
 
+    for parent in parents or []:
+        validate_scope(parent)
+
+    try:
         result = await get_db().create_scope(scope, description, parents)
 
         await ctx.info(f"Created scope '{scope}' with {len(result.get('parents', []))} parents")
@@ -172,32 +180,32 @@ async def create_scope(
 @mcp.tool
 async def update_scope(
     ctx: Context,
-    scope: str = Field(..., description="Current scope identifier (namespace:scope_name)"),
-    new_scope: str | None = Field(default=None, description="New scope identifier (optional)"),
-    new_description: str | None = Field(
-        default=None, description="Updated scope description (optional)"
+    scope: str = Field(description="Scope to update • Required • Text • Ex: 'shopcraft:backend'"),
+    new_scope: str = Field(description="New scope name • Optional • Text • Ex: 'shopcraft:api'"),
+    new_description: str = Field(
+        description="Updated description • Optional • Text • Ex: 'API endpoints'"
     ),
-    new_parents: list[str] | None = Field(
-        default=None, description="Updated parent scope identifiers (optional)"
+    new_parents: list[str] = Field(
+        description="Parent scopes • Optional • List • Ex: ['shopcraft:default', 'java:default']"
     ),
 ) -> dict[str, Any]:
     """Update scope name, description, and parent relationships with auto-updates."""
     await ctx.info(f"Updating scope '{scope}'")
 
+    validate_scope(scope)
+
+    if not (new_scope or new_description or new_parents):
+        raise ValueError(
+            "At least one of new_scope, new_description, or new_parents must be provided"
+        )
+
+    validate_scope(new_scope)
+    validate_description(new_description)
+
+    for parent in new_parents or []:
+        validate_scope(parent)
+
     try:
-        # Validate that at least one update parameter is provided
-        if not new_scope and not new_description and new_parents is None:
-            raise ValueError(
-                "At least one of new_scope, new_description, or new_parents must be provided"
-            )
-
-        validate_scope(scope)
-        if new_scope:
-            validate_scope(new_scope)
-        if new_parents:
-            for parent in new_parents:
-                validate_scope(parent)
-
         result = await get_db().update_scope(scope, new_scope, new_description, new_parents)
 
         await ctx.info(f"Updated scope '{scope}'" + (f" to '{new_scope}'" if new_scope else ""))
@@ -211,14 +219,14 @@ async def update_scope(
 @mcp.tool
 async def delete_scope(
     ctx: Context,
-    scope: str = Field(..., description="Scope identifier to delete (namespace:scope_name)"),
+    scope: str = Field(description="Scope to delete • Required • Text • Ex: 'shopcraft:legacy'"),
 ) -> dict[str, Any]:
     """Remove scope and all associated knowledge entries."""
     await ctx.warning(f"Deleting scope '{scope}' and all its knowledge")
 
-    try:
-        validate_scope(scope)
+    validate_scope(scope)
 
+    try:
         result = await get_db().delete_scope(scope)
 
         await ctx.info(
@@ -239,20 +247,26 @@ async def delete_scope(
 @mcp.tool
 async def write_knowledge(
     ctx: Context,
-    scope: str = Field(..., description="Target scope identifier (namespace:scope_name)"),
-    content: str = Field(..., description="Knowledge content to store"),
-    context: str = Field(..., description="Context or summary for the knowledge entry"),
-    task_size: Literal["XS", "S", "M", "L", "XL"] | None = Field(
-        default=None, description="Task complexity: XS, S, M, L, or XL"
+    scope: str = Field(description="Target scope • Required • Text • Ex: 'shopcraft:backend'"),
+    content: str = Field(
+        description="Knowledge content • Required • Text • Ex: 'API uses REST patterns'"
+    ),
+    context: str = Field(
+        description="Summary/context • Required • Text • Ex: 'Architecture decision'"
+    ),
+    task_size: str = Field(
+        description="Task complexity • Optional • Choice (XS/S/M/L/XL) • Ex: 'M'"
     ),
 ) -> dict[str, Any]:
     """Store new knowledge entry with automatic scope assignment and context tagging."""
     await ctx.info(f"Writing knowledge to scope '{scope}' (task_size: {task_size})")
 
-    try:
-        validate_scope(scope)
-        validate_knowledge(content, context)
+    validate_scope(scope)
+    validate_content(content)
+    validate_context(context)
+    validate_task_size(task_size)
 
+    try:
         result = await get_db().write_knowledge(scope, content, context, task_size)
 
         await ctx.info(f"Created knowledge entry {result.get('id')} in scope '{scope}'")
@@ -266,64 +280,61 @@ async def write_knowledge(
 @mcp.tool
 async def update_knowledge(
     ctx: Context,
-    id: str = Field(..., description="Knowledge entry ID to update"),
-    content: str | None = Field(default=None, description="Updated knowledge content (optional)"),
-    context: str | None = Field(default=None, description="Updated context or summary (optional)"),
-    scope: str | None = Field(default=None, description="Updated scope identifier (optional)"),
-    task_size: Literal["XS", "S", "M", "L", "XL"] | None = Field(
-        default=None, description="Task complexity: XS, S, M, L, or XL"
+    knowledge_id: int = Field(description="Entry ID • Required • Number • Ex: 42"),
+    content: str = Field(description="New content • Optional • Text • Ex: 'Updated API info'"),
+    context: str = Field(description="New context • Optional • Text • Ex: 'Revised approach'"),
+    scope: str = Field(description="New scope • Optional • Text • Ex: 'shopcraft:api'"),
+    task_size: str = Field(
+        description="Task complexity • Optional • Choice (XS/S/M/L/XL) • Ex: 'L'"
     ),
 ) -> dict[str, Any]:
     """Update knowledge entry content, context, or scope assignment."""
-    await ctx.info(f"Updating knowledge entry {id} (task_size: {task_size})")
+    await ctx.info(f"Updating knowledge entry {knowledge_id} (task_size: {task_size})")
+
+    if not (content or context or scope or task_size):
+        raise ValueError("At least one of content, context, scope, or task_size must be provided")
+
+    validate_content(content)
+    validate_context(context)
+    validate_scope(scope)
+    validate_task_size(task_size)
 
     try:
-        # Validate that at least one update parameter is provided
-        if not content and not context and not scope and task_size is None:
-            raise ValueError(
-                "At least one of content, context, scope, or task_size must be provided"
-            )
+        result = await get_db().update_knowledge(knowledge_id, content, context, scope, task_size)
 
-        if scope:
-            validate_scope(scope)
-        if content or context:
-            # Validate both if at least one is provided
-            validate_knowledge(content or "", context or "")
-
-        result = await get_db().update_knowledge(id, content, context, scope, task_size)
-
-        await ctx.info(f"Updated knowledge entry {id}")
+        await ctx.info(f"Updated knowledge entry {knowledge_id}")
         return result
 
     except Exception as e:
-        await ctx.error(f"Failed to update knowledge {id}: {str(e)}")
+        await ctx.error(f"Failed to update knowledge {knowledge_id}: {str(e)}")
         raise
 
 
 @mcp.tool
 async def delete_knowledge(
-    ctx: Context, id: str = Field(..., description="Knowledge entry ID to delete")
+    ctx: Context,
+    knowledge_id: int = Field(description="Entry ID to delete • Required • Number • Ex: 42"),
 ) -> dict[str, Any]:
     """Remove knowledge entry from system."""
-    await ctx.info(f"Deleting knowledge entry {id}")
+    await ctx.info(f"Deleting knowledge entry {knowledge_id}")
 
     try:
-        result = await get_db().delete_knowledge(id)
+        result = await get_db().delete_knowledge(knowledge_id)
 
-        await ctx.info(f"Deleted knowledge entry {id}")
+        await ctx.info(f"Deleted knowledge entry {knowledge_id}")
         return result
 
     except Exception as e:
-        await ctx.error(f"Failed to delete knowledge {id}: {str(e)}")
+        await ctx.error(f"Failed to delete knowledge {knowledge_id}: {str(e)}")
         raise
 
 
 @mcp.tool
 async def resolve_knowledge_conflict(
     ctx: Context,
-    active_id: str = Field(..., description="Knowledge entry ID to keep as active"),
-    suppressed_ids: list[str] = Field(
-        ..., description="Knowledge entry IDs to suppress due to conflict"
+    active_id: int = Field(description="ID to keep active • Required • Number • Ex: 42"),
+    suppressed_ids: list[int] = Field(
+        description="IDs to suppress • Required • List • Ex: [43, 44, 45]"
     ),
 ) -> dict[str, Any]:
     """Mark knowledge entries for conflict resolution when contradictory information exists."""
@@ -331,10 +342,10 @@ async def resolve_knowledge_conflict(
         f"Resolving conflict: keeping {active_id}, suppressing {len(suppressed_ids)} entries"
     )
 
-    try:
-        if not suppressed_ids:
-            raise ValueError("suppressed_ids cannot be empty")
+    if not suppressed_ids:
+        raise ValueError("suppressed_ids cannot be empty")
 
+    try:
         result = await get_db().resolve_conflict(active_id, suppressed_ids)
 
         await ctx.info(
@@ -350,20 +361,24 @@ async def resolve_knowledge_conflict(
 @mcp.tool
 async def get_task_context(
     ctx: Context,
-    queries: list[str] = Field(..., description="Multiple targeted search queries for the task"),
-    scope: str = Field(..., description="Scope to search within (namespace:scope_name)"),
-    task_size: Literal["XS", "S", "M", "L", "XL"] | None = Field(
-        default=None, description="Task complexity: XS, S, M, L, or XL"
+    queries: list[str] = Field(
+        description="Search queries • Required • List • Ex: ['REST API', 'authentication']"
+    ),
+    scope: str = Field(description="Search scope • Required • Text • Ex: 'shopcraft:backend'"),
+    task_size: str = Field(
+        description="Task complexity • Optional • Choice (XS/S/M/L/XL) • Ex: 'L'"
     ),
 ) -> dict[str, Any]:
     """Search knowledge using multiple queries and return results by scope hierarchy."""
     await ctx.info(f"Searching with {len(queries)} queries in scope '{scope}'")
 
-    try:
-        if not queries:
-            raise ValueError("queries cannot be empty")
-        validate_scope(scope)
+    if not queries:
+        raise ValueError("queries cannot be empty")
 
+    validate_scope(scope)
+    validate_task_size(task_size)
+
+    try:
         result = await get_db().get_task_context(queries, scope, task_size)
 
         # Count total results
