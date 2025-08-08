@@ -30,21 +30,21 @@ def parse_transport(value: str | None, default: str = "stdio") -> Literal["stdio
     return cast(Literal["stdio", "http"], transport)
 
 
-def parse_scope(scope: str) -> tuple[str, str]:
+def parse_canonical_scope_name(canonical_scope_name: str) -> tuple[str, str]:
     """
-    Parse canonical scope identifier into namespace and scope name.
+    Parse canonical scope name into namespace name and scope name.
 
     Args:
-        scope: Canonical scope identifier (namespace:scope)
+        canonical_scope_name: Canonical scope name (namespace:scope)
 
     Returns:
-        Tuple of (namespace, scope_name)
+        Tuple of (namespace_name, scope_name)
 
     Raises:
-        ValueError: If scope format is invalid
+        ValueError: If canonical scope name format is invalid
     """
-    if ":" not in scope:
-        raise ValueError("Scope must be in format 'namespace:scope'")
+    if ":" not in canonical_scope_name:
+        raise ValueError("Canonical scope name must be in format 'namespace:scope'")
 
-    namespace, scope_name = scope.split(":", 1)
-    return namespace, scope_name
+    namespace_name, scope_name = canonical_scope_name.split(":", 1)
+    return namespace_name, scope_name

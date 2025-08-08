@@ -1,9 +1,18 @@
+# Python
+__pycache__/
+.ruff_cache/
+*.py[codz]
+*$py.class
+
+# Virtual Environment
+.venv/
+
 # Logs
 *.log
 
 # Environment
-.env
-.env.*
+.env*
+!.env.example
 
 # OS
 .DS_Store
@@ -13,20 +22,8 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Database
-data/
-*.db
-
-# MCP
-.mcp/
-mcp-config.local.json
-
 # Claude Code
 .claude/
-
-# Backups
-*.dump
-backups/
 
 # Examples
 examples/

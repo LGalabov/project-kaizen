@@ -374,6 +374,84 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- =============================================================================
+-- NAMESPACE QUERY FUNCTIONS
+-- =============================================================================
+
+-- Unified function to get namespaces with scopes and parent relationships
+CREATE OR REPLACE FUNCTION get_namespaces_with_hierarchy(
+    namespace TEXT,    -- Optional: NULL means all namespaces
+    style TEXT         -- Optional: NULL means 'short'
+) RETURNS TABLE (
+    namespace_name TEXT,
+    namespace_description TEXT,
+    scope_name TEXT,
+    scope_description TEXT,
+    parent_namespace TEXT,
+    parent_scope TEXT
+) AS $$
+DECLARE
+    detail_level TEXT;
+BEGIN
+    -- Handle default for style
+    detail_level := COALESCE(style, 'short');
+    
+    -- Validate style parameter
+    IF detail_level NOT IN ('short', 'long', 'details') THEN
+        RAISE EXCEPTION 'Invalid style: %. Must be short, long, or details', detail_level;
+    END IF;
+    
+    -- Return different data based on detail level
+    IF detail_level = 'short' THEN
+        -- Short: Only namespace info, no scopes or parents
+        RETURN QUERY
+        SELECT 
+            n.name,
+            n.description,
+            NULL::TEXT,
+            NULL::TEXT,
+            NULL::TEXT,
+            NULL::TEXT
+        FROM namespaces n
+        WHERE namespace IS NULL OR n.name = namespace
+        ORDER BY n.name;
+        
+    ELSIF detail_level = 'long' THEN
+        -- Long: Namespaces with scopes, but no parent relationships
+        RETURN QUERY
+        SELECT 
+            n.name,
+            n.description,
+            s.name,
+            s.description,
+            NULL::TEXT,
+            NULL::TEXT
+        FROM namespaces n
+        LEFT JOIN scopes s ON n.id = s.namespace_id
+        WHERE namespace IS NULL OR n.name = namespace
+        ORDER BY n.name, s.name;
+        
+    ELSE  -- details
+        -- Details: Full hierarchy including parent relationships
+        RETURN QUERY
+        SELECT 
+            n.name,
+            n.description,
+            s.name,
+            s.description,
+            pn.name,
+            ps.name
+        FROM namespaces n
+        LEFT JOIN scopes s ON n.id = s.namespace_id
+        LEFT JOIN scope_parents sp ON s.id = sp.child_scope_id
+        LEFT JOIN scopes ps ON sp.parent_scope_id = ps.id
+        LEFT JOIN namespaces pn ON ps.namespace_id = pn.id
+        WHERE namespace IS NULL OR n.name = namespace
+        ORDER BY n.name, s.name, pn.name, ps.name;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Refreshes hierarchy cache for affected scopes and descendants
 CREATE OR REPLACE FUNCTION refresh_scope_hierarchy() RETURNS TRIGGER AS $$
 DECLARE
