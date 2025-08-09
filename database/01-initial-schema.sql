@@ -59,9 +59,7 @@ CREATE TABLE knowledge (
     context TEXT NOT NULL,
     task_size task_size_enum,
     
-    -- Generated search vectors with weighted ranking
-    content_vector tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED,
-    context_vector tsvector GENERATED ALWAYS AS (to_tsvector('english', context)) STORED,
+    -- Generated search vector with weighted ranking
     search_vector tsvector GENERATED ALWAYS AS (
         setweight(to_tsvector('english', context), 'A') || 
         setweight(to_tsvector('english', content), 'B')
@@ -89,6 +87,7 @@ CREATE INDEX idx_conflicts_suppressed ON knowledge_conflicts USING GIN (suppress
 CREATE TABLE config (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
+    default_value TEXT NOT NULL,
     value_type config_type_enum NOT NULL,
     description TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -129,7 +128,7 @@ CREATE INDEX idx_mv_active_qualified_scope ON mv_active_knowledge_search (qualif
 -- =============================================================================
 
 -- Multi-query knowledge retrieval with scope inheritance
-CREATE OR REPLACE FUNCTION get_task_context(
+CREATE OR REPLACE FUNCTION search_knowledge_base(
     query_terms TEXT[],
     target_scope TEXT,
     filter_task_size task_size_enum DEFAULT NULL
@@ -279,6 +278,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Reset configuration to default value
+CREATE OR REPLACE FUNCTION reset_config(config_key TEXT)
+RETURNS TEXT AS $$
+DECLARE
+    default_val TEXT;
+BEGIN
+    UPDATE config 
+    SET value = default_value, updated_at = NOW()
+    WHERE key = config_key
+    RETURNING default_value INTO default_val;
+    
+    IF default_val IS NULL THEN
+        RAISE EXCEPTION 'Configuration key "%" does not exist', config_key;
+    END IF;
+    
+    RETURN default_val;
+END;
+$$ LANGUAGE plpgsql;
+
 -- =============================================================================
 -- SCOPE HIERARCHY FUNCTIONS
 -- =============================================================================
@@ -332,125 +350,73 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Updates scope parent relationships ensuring default parent is preserved
-CREATE OR REPLACE FUNCTION update_scope_parents(
+-- Adds parent relationships to a scope (keeps existing parents)
+CREATE OR REPLACE FUNCTION add_scope_parents(
     target_scope TEXT,
     parent_scope_names TEXT[]
 ) RETURNS TEXT[] AS $$
-DECLARE
-    target_scope_id BIGINT;
-    target_namespace TEXT;
 BEGIN
-    -- Parse target scope
-    target_namespace := split_part(target_scope, ':', 1);
-    
-    SELECT s.id INTO target_scope_id
-    FROM scopes s JOIN namespaces n ON s.namespace_id = n.id
-    WHERE n.name = target_namespace AND s.name = split_part(target_scope, ':', 2);
-    
-    IF target_scope_id IS NULL THEN
-        RAISE EXCEPTION 'Target scope "%" not found', target_scope;
+    -- Add new parent relationships directly using canonical names
+    IF parent_scope_names IS NOT NULL AND array_length(parent_scope_names, 1) > 0 THEN
+        INSERT INTO scope_parents (child_scope_id, parent_scope_id)
+        SELECT cs.id, ps.id
+        FROM scopes cs
+        JOIN namespaces cn ON cs.namespace_id = cn.id
+        CROSS JOIN unnest(parent_scope_names) AS parent_name
+        JOIN scopes ps ON ps.id != cs.id
+        JOIN namespaces pn ON ps.namespace_id = pn.id
+        WHERE cn.name || ':' || cs.name = target_scope
+          AND pn.name || ':' || ps.name = parent_name
+        ON CONFLICT DO NOTHING;
     END IF;
     
-    -- Simple: delete all, insert all (including auto-added default)
-    DELETE FROM scope_parents WHERE child_scope_id = target_scope_id;
-    
-    INSERT INTO scope_parents (child_scope_id, parent_scope_id)
-    SELECT DISTINCT target_scope_id, s.id
-    FROM unnest(parent_scope_names || ARRAY[target_namespace || ':default']) AS parent_name
-    JOIN scopes s ON s.id = (
-        SELECT s2.id FROM scopes s2 JOIN namespaces n2 ON s2.namespace_id = n2.id 
-        WHERE n2.name || ':' || s2.name = parent_name
-    );
-    
-    -- Return current parents
+    -- Return all current parents
     RETURN (
-        SELECT array_agg(n.name || ':' || s.name ORDER BY n.name || ':' || s.name)
+        SELECT array_agg(pn.name || ':' || ps.name ORDER BY pn.name || ':' || ps.name)
         FROM scope_parents sp
-        JOIN scopes s ON sp.parent_scope_id = s.id
-        JOIN namespaces n ON s.namespace_id = n.id
-        WHERE sp.child_scope_id = target_scope_id
+        JOIN scopes cs ON sp.child_scope_id = cs.id
+        JOIN namespaces cn ON cs.namespace_id = cn.id
+        JOIN scopes ps ON sp.parent_scope_id = ps.id
+        JOIN namespaces pn ON ps.namespace_id = pn.id
+        WHERE cn.name || ':' || cs.name = target_scope
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Removes a parent relationship from a scope
+CREATE OR REPLACE FUNCTION remove_scope_parent(
+    target_scope TEXT,
+    parent_scope_name TEXT
+) RETURNS TEXT[] AS $$
+BEGIN
+    -- Remove the parent relationship directly using canonical names
+    DELETE FROM scope_parents
+    WHERE (child_scope_id, parent_scope_id) IN (
+        SELECT cs.id, ps.id
+        FROM scopes cs
+        JOIN namespaces cn ON cs.namespace_id = cn.id
+        JOIN scopes ps ON ps.id != cs.id
+        JOIN namespaces pn ON ps.namespace_id = pn.id
+        WHERE cn.name || ':' || cs.name = target_scope
+          AND pn.name || ':' || ps.name = parent_scope_name
+    );
+    
+    -- Return remaining parents
+    RETURN (
+        SELECT array_agg(pn.name || ':' || ps.name ORDER BY pn.name || ':' || ps.name)
+        FROM scope_parents sp
+        JOIN scopes cs ON sp.child_scope_id = cs.id
+        JOIN namespaces cn ON cs.namespace_id = cn.id
+        JOIN scopes ps ON sp.parent_scope_id = ps.id
+        JOIN namespaces pn ON ps.namespace_id = pn.id
+        WHERE cn.name || ':' || cs.name = target_scope
     );
 END;
 $$ LANGUAGE plpgsql;
 
 -- =============================================================================
--- NAMESPACE QUERY FUNCTIONS
+-- TRIGGER FUNCTIONS
 -- =============================================================================
-
--- Unified function to get namespaces with scopes and parent relationships
-CREATE OR REPLACE FUNCTION get_namespaces_with_hierarchy(
-    namespace TEXT,    -- Optional: NULL means all namespaces
-    style TEXT         -- Optional: NULL means 'short'
-) RETURNS TABLE (
-    namespace_name TEXT,
-    namespace_description TEXT,
-    scope_name TEXT,
-    scope_description TEXT,
-    parent_namespace TEXT,
-    parent_scope TEXT
-) AS $$
-DECLARE
-    detail_level TEXT;
-BEGIN
-    -- Handle default for style
-    detail_level := COALESCE(style, 'short');
-    
-    -- Validate style parameter
-    IF detail_level NOT IN ('short', 'long', 'details') THEN
-        RAISE EXCEPTION 'Invalid style: %. Must be short, long, or details', detail_level;
-    END IF;
-    
-    -- Return different data based on detail level
-    IF detail_level = 'short' THEN
-        -- Short: Only namespace info, no scopes or parents
-        RETURN QUERY
-        SELECT 
-            n.name,
-            n.description,
-            NULL::TEXT,
-            NULL::TEXT,
-            NULL::TEXT,
-            NULL::TEXT
-        FROM namespaces n
-        WHERE namespace IS NULL OR n.name = namespace
-        ORDER BY n.name;
-        
-    ELSIF detail_level = 'long' THEN
-        -- Long: Namespaces with scopes, but no parent relationships
-        RETURN QUERY
-        SELECT 
-            n.name,
-            n.description,
-            s.name,
-            s.description,
-            NULL::TEXT,
-            NULL::TEXT
-        FROM namespaces n
-        LEFT JOIN scopes s ON n.id = s.namespace_id
-        WHERE namespace IS NULL OR n.name = namespace
-        ORDER BY n.name, s.name;
-        
-    ELSE  -- details
-        -- Details: Full hierarchy including parent relationships
-        RETURN QUERY
-        SELECT 
-            n.name,
-            n.description,
-            s.name,
-            s.description,
-            pn.name,
-            ps.name
-        FROM namespaces n
-        LEFT JOIN scopes s ON n.id = s.namespace_id
-        LEFT JOIN scope_parents sp ON s.id = sp.child_scope_id
-        LEFT JOIN scopes ps ON sp.parent_scope_id = ps.id
-        LEFT JOIN namespaces pn ON ps.namespace_id = pn.id
-        WHERE namespace IS NULL OR n.name = namespace
-        ORDER BY n.name, s.name, pn.name, ps.name;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
 
 -- Refreshes hierarchy cache for affected scopes and descendants
 CREATE OR REPLACE FUNCTION refresh_scope_hierarchy() RETURNS TRIGGER AS $$
@@ -622,6 +588,9 @@ BEGIN
         IF OLD.description != NEW.description THEN
             RAISE EXCEPTION 'Configuration description cannot be modified. Use update_config() to change the value only.';
         END IF;
+        IF OLD.default_value != NEW.default_value THEN
+            RAISE EXCEPTION 'Configuration default_value cannot be modified. Defaults are immutable.';
+        END IF;
     END IF;
     RETURN NEW;
 END;
@@ -710,12 +679,12 @@ ON CONFLICT (name) DO NOTHING;
 
 -- Initial configuration values (disable protection trigger for initial data)
 ALTER TABLE config DISABLE TRIGGER prevent_config_insert_delete_update;
-INSERT INTO config (key, value, value_type, description) VALUES
-('search.relevance_threshold', '0.4', 'float', 'Minimum ts_rank score for search results'),
-('search.language', 'english', 'regconfig', 'Full-text search language configuration'),
-('search.max_results', '50', 'integer', 'Maximum number of results per query'),
-('search.context_weight', '1.0', 'float', 'Weight for context field (A label) in search ranking'),
-('search.content_weight', '0.4', 'float', 'Weight for content field (B label) in search ranking');
+INSERT INTO config (key, value, default_value, value_type, description) VALUES
+('search.relevance_threshold', '0.4', '0.4', 'float', 'Minimum ts_rank score for search results'),
+('search.language', 'english', 'english', 'regconfig', 'Full-text search language configuration'),
+('search.max_results', '50', '50', 'integer', 'Maximum number of results per query'),
+('search.context_weight', '1.0', '1.0', 'float', 'Weight for context field (A label) in search ranking'),
+('search.content_weight', '0.4', '0.4', 'float', 'Weight for content field (B label) in search ranking');
 ALTER TABLE config ENABLE TRIGGER prevent_config_insert_delete_update;
 
 -- =============================================================================
@@ -745,8 +714,9 @@ COMMENT ON MATERIALIZED VIEW mv_active_knowledge_search IS 'Pre-joined, conflict
 COMMENT ON FUNCTION get_default_scope_id IS 'Returns default scope ID for any namespace';
 COMMENT ON FUNCTION get_global_default_scope_id IS 'Returns global:default scope ID';
 COMMENT ON FUNCTION calculate_scope_ancestors IS 'Calculates complete ancestor chain including global:default for scope ID';
-COMMENT ON FUNCTION update_scope_parents IS 'Updates scope parent relationships ensuring default parent is preserved';
-COMMENT ON FUNCTION get_task_context IS 'Multi-query knowledge retrieval with scope inheritance and relevance ranking for MCP get_task_context action';
+COMMENT ON FUNCTION add_scope_parents IS 'Adds parent relationships to a scope without removing existing ones';
+COMMENT ON FUNCTION remove_scope_parent IS 'Removes a specific parent relationship from a scope';
+COMMENT ON FUNCTION search_knowledge_base IS 'Multi-query knowledge retrieval with scope inheritance and relevance ranking';
 COMMENT ON FUNCTION enforce_default_parent IS 'Ensures all scopes inherit from default scope';
 COMMENT ON FUNCTION prevent_global_namespace_deletion IS 'Prevents deletion of the global namespace';
 COMMENT ON FUNCTION prevent_default_scope_deletion IS 'Prevents direct deletion of default scopes while allowing cascade deletion';
@@ -758,5 +728,6 @@ COMMENT ON FUNCTION get_config_float IS 'Get configuration value as float - vali
 COMMENT ON FUNCTION get_config_boolean IS 'Get configuration value as boolean - validates type';
 COMMENT ON FUNCTION get_config_regconfig IS 'Get configuration value as regconfig - validates type';
 COMMENT ON FUNCTION update_config IS 'Update configuration value with type validation - only value changes allowed';
+COMMENT ON FUNCTION reset_config IS 'Reset configuration value to its default';
 COMMENT ON FUNCTION validate_config_type IS 'Validates configuration values match their declared types';
 COMMENT ON FUNCTION prevent_config_changes IS 'Prevents insert/delete and protects key/type/description from changes';

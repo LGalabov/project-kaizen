@@ -30,9 +30,7 @@ def validate_namespace_name(namespace_name: str | None) -> None:
         raise ValueError("Namespace name must be 2-64 characters")
 
     if not NAMESPACE_PATTERN.match(namespace_name):
-        raise ValueError(
-            "Namespace name must contain only lowercase letters, numbers, and hyphens"
-        )
+        raise ValueError("Namespace name must contain only lowercase letters, numbers, and hyphens")
 
 
 def validate_scope_name(scope_name: str | None) -> None:
@@ -50,9 +48,7 @@ def validate_scope_name(scope_name: str | None) -> None:
         raise ValueError("Scope name must be 2-64 characters")
 
     if not SCOPE_NAME_PATTERN.match(scope_name):
-        raise ValueError(
-            "Scope name must contain only lowercase letters, numbers, and hyphens"
-        )
+        raise ValueError("Scope name must contain only lowercase letters, numbers, and hyphens")
 
 
 def validate_canonical_scope_name(canonical_scope_name: str | None) -> None:

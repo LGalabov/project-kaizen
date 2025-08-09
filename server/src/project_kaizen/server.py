@@ -1,10 +1,12 @@
-"""Project Kaizen MCP Server - FastMCP server with atomic tools for better AI usability."""
+"""Project Kaizen MCP Server."""
 
 from typing import Any
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
-from validators import (
+
+from . import database
+from .validators import (
     validate_canonical_scope_name,
     validate_content,
     validate_context,
@@ -13,14 +15,6 @@ from validators import (
     validate_scope_name,
     validate_task_size,
 )
-
-
-def get_db() -> Any:
-    """Lazy initialization of database module."""
-    import database
-
-    return database
-
 
 mcp = FastMCP("project-kaizen")
 
@@ -43,7 +37,7 @@ async def list_namespaces(ctx: Context) -> dict[str, Any]:
     await ctx.info("Listing all namespaces with full details")
 
     try:
-        result = await get_db().list_namespaces()
+        result = await database.list_namespaces()
 
         await ctx.debug(f"Found {len(result.get('namespaces', {}))} namespaces")
         return result
@@ -56,10 +50,8 @@ async def list_namespaces(ctx: Context) -> dict[str, Any]:
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def get_namespace_details(
-        ctx: Context,
-        namespace_name: str = Field(
-            description="Namespace name (2-64 chars, lowercase letters/numbers/-)"
-        ),
+    ctx: Context,
+    namespace_name: str = Field(description="Namespace name (2-64 chars, lowercase letters/numbers/-)"),
 ) -> dict[str, Any]:
     """Get complete details for a specific namespace including all scopes and parent relationships.
 
@@ -74,7 +66,7 @@ async def get_namespace_details(
     validate_namespace_name(namespace_name)
 
     try:
-        result = await get_db().get_namespace_details(namespace_name)
+        result = await database.get_namespace_details(namespace_name)
 
         await ctx.debug(f"Retrieved namespace '{namespace_name}' with full details")
         return result
@@ -87,13 +79,9 @@ async def get_namespace_details(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def create_namespace(
-        ctx: Context,
-        namespace_name: str = Field(
-            description="Unique namespace name (2-64 chars, lowercase letters/numbers/-)"
-        ),
-        description: str = Field(
-            description="Namespace purpose (2-64 chars, free text, cannot be just whitespace)"
-        ),
+    ctx: Context,
+    namespace_name: str = Field(description="Unique namespace name (2-64 chars, lowercase letters/numbers/-)"),
+    description: str = Field(description="Namespace purpose (2-64 chars, free text, cannot be just whitespace)"),
 ) -> dict[str, Any]:
     """Create new namespace with automatic default scope.
 
@@ -113,7 +101,7 @@ async def create_namespace(
     validate_description(description)
 
     try:
-        result = await get_db().create_namespace(namespace_name, description)
+        result = await database.create_namespace(namespace_name, description)
 
         await ctx.info(f"Created namespace '{namespace_name}' with default scope")
         return result
@@ -126,13 +114,9 @@ async def create_namespace(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def rename_namespace(
-        ctx: Context,
-        old_namespace_name: str = Field(
-            description="Current namespace name (2-64 chars, lowercase letters/numbers/-)"
-        ),
-        new_namespace_name: str = Field(
-            description="New namespace name (2-64 chars, lowercase letters/numbers/-)"
-        ),
+    ctx: Context,
+    old_namespace_name: str = Field(description="Current namespace name (2-64 chars, lowercase letters/numbers/-)"),
+    new_namespace_name: str = Field(description="New namespace name (2-64 chars, lowercase letters/numbers/-)"),
 ) -> dict[str, Any]:
     """Rename a namespace (all references auto-updated).
 
@@ -152,7 +136,7 @@ async def rename_namespace(
     validate_namespace_name(new_namespace_name)
 
     try:
-        result = await get_db().rename_namespace(old_namespace_name, new_namespace_name)
+        result = await database.rename_namespace(old_namespace_name, new_namespace_name)
 
         await ctx.info(f"Renamed namespace '{old_namespace_name}' to '{new_namespace_name}'")
         return result
@@ -165,13 +149,9 @@ async def rename_namespace(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def update_namespace_description(
-        ctx: Context,
-        namespace_name: str = Field(
-            description="Namespace to update (2-64 chars, lowercase letters/numbers/-)"
-        ),
-        new_description: str = Field(
-            description="New description (2-64 chars, free text, cannot be just whitespace)"
-        ),
+    ctx: Context,
+    namespace_name: str = Field(description="Namespace to update (2-64 chars, lowercase letters/numbers/-)"),
+    new_description: str = Field(description="New description (2-64 chars, free text, cannot be just whitespace)"),
 ) -> dict[str, Any]:
     """Update namespace description only.
 
@@ -190,7 +170,7 @@ async def update_namespace_description(
     validate_description(new_description)
 
     try:
-        result = await get_db().update_namespace_description(namespace_name, new_description)
+        result = await database.update_namespace_description(namespace_name, new_description)
 
         await ctx.info(f"Updated description for namespace '{namespace_name}'")
         return result
@@ -203,10 +183,8 @@ async def update_namespace_description(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def delete_namespace(
-        ctx: Context,
-        namespace_name: str = Field(
-            description="Namespace to delete (2-64 chars, lowercase letters/numbers/-)"
-        ),
+    ctx: Context,
+    namespace_name: str = Field(description="Namespace to delete (2-64 chars, lowercase letters/numbers/-)"),
 ) -> dict[str, Any]:
     """Delete namespace and ALL associated data (cannot be undone).
 
@@ -224,7 +202,7 @@ async def delete_namespace(
     validate_namespace_name(namespace_name)
 
     try:
-        result = await get_db().delete_namespace(namespace_name)
+        result = await database.delete_namespace(namespace_name)
 
         await ctx.info(
             f"Deleted namespace '{namespace_name}' with {result.get('scopes_count', 0)} scopes "
@@ -245,22 +223,16 @@ async def delete_namespace(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def create_scope(
-        ctx: Context,
-        canonical_scope_name: str = Field(
-            description=(
-                    "Full scope identifier 'namespace:scope' "
-                    "(each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
-        description: str = Field(
-            description="Purpose of this scope (2-64 chars, free text, cannot be just whitespace)"
-        ),
-        parents: list[str] = Field(
-            description=(
-                    "Parent canonical scope names like ['namespace:parent1'] "
-                    "(empty list = inherit from namespace:default only)"
-            )
-        ),
+    ctx: Context,
+    canonical_scope_name: str = Field(
+        description="Full scope identifier 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    ),
+    description: str = Field(description="Purpose of this scope (2-64 chars, free text, cannot be just whitespace)"),
+    parents: list[str] = Field(  # noqa: B008
+        description=(
+            "Parent canonical scope names like ['namespace:parent1'] (empty list = inherit from namespace:default only)"
+        )
+    ),
 ) -> dict[str, Any]:
     """Create a new scope with specified parent relationships.
 
@@ -284,11 +256,9 @@ async def create_scope(
         validate_canonical_scope_name(parent)
 
     try:
-        result = await get_db().create_scope(canonical_scope_name, description, parents)
+        result = await database.create_scope(canonical_scope_name, description, parents)
 
-        await ctx.info(
-            f"Created scope '{canonical_scope_name}' with {len(parents)} explicit parents"
-        )
+        await ctx.info(f"Created scope '{canonical_scope_name}' with {len(parents)} explicit parents")
         return result
 
     except Exception as e:
@@ -299,18 +269,15 @@ async def create_scope(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def rename_scope(
-        ctx: Context,
-        canonical_scope_name: str = Field(
-            description=(
-                    "Full scope identifier to rename 'namespace:scope' "
-                    "(each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
-        new_scope_name: str = Field(
-            description=(
-                    "New scope name only (2-64 chars, lowercase letters/numbers/-), stays in same namespace"
-            )
-        ),
+    ctx: Context,
+    canonical_scope_name: str = Field(
+        description=(
+            "Full scope identifier to rename 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+        )
+    ),
+    new_scope_name: str = Field(
+        description="New scope name only (2-64 chars, lowercase letters/numbers/-), stays in same namespace"
+    ),
 ) -> dict[str, Any]:
     """Rename a scope within the same namespace (references auto-updated).
 
@@ -330,7 +297,7 @@ async def rename_scope(
     validate_scope_name(new_scope_name)
 
     try:
-        result = await get_db().rename_scope(canonical_scope_name, new_scope_name)
+        result = await database.rename_scope(canonical_scope_name, new_scope_name)
 
         await ctx.info(f"Renamed scope '{canonical_scope_name}' to new name '{new_scope_name}'")
         return result
@@ -343,16 +310,11 @@ async def rename_scope(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def update_scope_description(
-        ctx: Context,
-        canonical_scope_name: str = Field(
-            description=(
-                    "Full scope identifier 'namespace:scope' "
-                    "(each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
-        new_description: str = Field(
-            description="New description (2-64 chars, free text, cannot be just whitespace)"
-        ),
+    ctx: Context,
+    canonical_scope_name: str = Field(
+        description="Full scope identifier 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    ),
+    new_description: str = Field(description="New description (2-64 chars, free text, cannot be just whitespace)"),
 ) -> dict[str, Any]:
     """Update scope description only.
 
@@ -371,7 +333,7 @@ async def update_scope_description(
     validate_description(new_description)
 
     try:
-        result = await get_db().update_scope_description(canonical_scope_name, new_description)
+        result = await database.update_scope_description(canonical_scope_name, new_description)
 
         await ctx.info(f"Updated description for scope '{canonical_scope_name}'")
         return result
@@ -384,19 +346,13 @@ async def update_scope_description(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def add_scope_parent(
-        ctx: Context,
-        canonical_scope_name: str = Field(
-            description=(
-                    "Full scope identifier 'namespace:scope' "
-                    "(each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
-        parent_canonical_scope_name: str = Field(
-            description=(
-                    "Parent scope to add 'namespace:scope' "
-                    "(each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
+    ctx: Context,
+    canonical_scope_name: str = Field(
+        description="Full scope identifier 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    ),
+    parent_canonical_scope_name: str = Field(
+        description="Parent scope to add 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    ),
 ) -> dict[str, Any]:
     """Add a parent relationship to an existing scope.
 
@@ -410,19 +366,15 @@ async def add_scope_parent(
     Returns:
         Dictionary with updated scope and all parent relationships
     """
-    await ctx.info(
-        f"Adding parent '{parent_canonical_scope_name}' to scope '{canonical_scope_name}'"
-    )
+    await ctx.info(f"Adding parent '{parent_canonical_scope_name}' to scope '{canonical_scope_name}'")
 
     validate_canonical_scope_name(canonical_scope_name)
     validate_canonical_scope_name(parent_canonical_scope_name)
 
     try:
-        result = await get_db().add_scope_parent(canonical_scope_name, parent_canonical_scope_name)
+        result = await database.add_scope_parent(canonical_scope_name, parent_canonical_scope_name)
 
-        await ctx.info(
-            f"Added parent '{parent_canonical_scope_name}' to scope '{canonical_scope_name}'"
-        )
+        await ctx.info(f"Added parent '{parent_canonical_scope_name}' to scope '{canonical_scope_name}'")
         return result
 
     except Exception as e:
@@ -433,19 +385,13 @@ async def add_scope_parent(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def remove_scope_parent(
-        ctx: Context,
-        canonical_scope_name: str = Field(
-            description=(
-                    "Full scope identifier 'namespace:scope' "
-                    "(each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
-        parent_canonical_scope_name: str = Field(
-            description=(
-                    "Parent scope to remove 'namespace:scope' "
-                    "(each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
+    ctx: Context,
+    canonical_scope_name: str = Field(
+        description="Full scope identifier 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    ),
+    parent_canonical_scope_name: str = Field(
+        description="Parent scope to remove 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    ),
 ) -> dict[str, Any]:
     """Remove a parent relationship from a scope.
 
@@ -459,21 +405,15 @@ async def remove_scope_parent(
     Returns:
         Dictionary with updated scope and remaining parent relationships
     """
-    await ctx.info(
-        f"Removing parent '{parent_canonical_scope_name}' from scope '{canonical_scope_name}'"
-    )
+    await ctx.info(f"Removing parent '{parent_canonical_scope_name}' from scope '{canonical_scope_name}'")
 
     validate_canonical_scope_name(canonical_scope_name)
     validate_canonical_scope_name(parent_canonical_scope_name)
 
     try:
-        result = await get_db().remove_scope_parent(
-            canonical_scope_name, parent_canonical_scope_name
-        )
+        result = await database.remove_scope_parent(canonical_scope_name, parent_canonical_scope_name)
 
-        await ctx.info(
-            f"Removed parent '{parent_canonical_scope_name}' from scope '{canonical_scope_name}'"
-        )
+        await ctx.info(f"Removed parent '{parent_canonical_scope_name}' from scope '{canonical_scope_name}'")
         return result
 
     except Exception as e:
@@ -484,13 +424,12 @@ async def remove_scope_parent(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def delete_scope(
-        ctx: Context,
-        canonical_scope_name: str = Field(
-            description=(
-                    "Full scope identifier to delete 'namespace:scope' "
-                    "(each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
+    ctx: Context,
+    canonical_scope_name: str = Field(
+        description=(
+            "Full scope identifier to delete 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+        )
+    ),
 ) -> dict[str, Any]:
     """Delete scope and ALL associated knowledge (cannot delete default scopes).
 
@@ -508,11 +447,10 @@ async def delete_scope(
     validate_canonical_scope_name(canonical_scope_name)
 
     try:
-        result = await get_db().delete_scope(canonical_scope_name)
+        result = await database.delete_scope(canonical_scope_name)
 
         await ctx.info(
-            f"Deleted scope '{canonical_scope_name}' with "
-            f"{result.get('knowledge_deleted', 0)} knowledge entries"
+            f"Deleted scope '{canonical_scope_name}' with {result.get('knowledge_deleted', 0)} knowledge entries"
         )
         return result
 
@@ -529,17 +467,13 @@ async def delete_scope(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def write_knowledge(
-        ctx: Context,
-        canonical_scope_name: str = Field(
-            description=(
-                    "Target scope 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
-        content: str = Field(description="Knowledge content (non-empty, free text)"),
-        context: str = Field(description="Summary/context of the knowledge (2-64 chars, free text)"),
-        task_size: str | None = Field(
-            default=None, description="Task complexity (XS/S/M/L/XL), null if not classified"
-        ),
+    ctx: Context,
+    canonical_scope_name: str = Field(
+        description="Target scope 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    ),
+    content: str = Field(description="Knowledge content (non-empty, free text)"),
+    context: str = Field(description="Summary/context of the knowledge (2-64 chars, free text)"),
+    task_size: str | None = Field(default=None, description="Task complexity (XS/S/M/L/XL), null if not classified"),
 ) -> dict[str, Any]:
     """Store new knowledge entry with optional task size classification.
 
@@ -564,11 +498,9 @@ async def write_knowledge(
         validate_task_size(task_size)
 
     try:
-        result = await get_db().write_knowledge(canonical_scope_name, content, context, task_size)
+        result = await database.write_knowledge(canonical_scope_name, content, context, task_size)
 
-        await ctx.info(
-            f"Created knowledge entry {result.get('id')} in scope '{canonical_scope_name}'"
-        )
+        await ctx.info(f"Created knowledge entry {result.get('id')} in scope '{canonical_scope_name}'")
         return result
 
     except Exception as e:
@@ -579,9 +511,9 @@ async def write_knowledge(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def update_knowledge_content(
-        ctx: Context,
-        knowledge_id: int = Field(description="Knowledge entry ID to update"),
-        new_content: str = Field(description="New knowledge content (non-empty, free text)"),
+    ctx: Context,
+    knowledge_id: int = Field(description="Knowledge entry ID to update"),
+    new_content: str = Field(description="New knowledge content (non-empty, free text)"),
 ) -> dict[str, Any]:
     """Update the content of an existing knowledge entry.
 
@@ -599,7 +531,7 @@ async def update_knowledge_content(
     validate_content(new_content)
 
     try:
-        result = await get_db().update_knowledge_content(knowledge_id, new_content)
+        result = await database.update_knowledge_content(knowledge_id, new_content)
 
         await ctx.info(f"Updated content for knowledge entry {knowledge_id}")
         return result
@@ -612,9 +544,9 @@ async def update_knowledge_content(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def update_knowledge_context(
-        ctx: Context,
-        knowledge_id: int = Field(description="Knowledge entry ID to update"),
-        new_context: str = Field(description="New context/summary (2-64 chars, free text)"),
+    ctx: Context,
+    knowledge_id: int = Field(description="Knowledge entry ID to update"),
+    new_context: str = Field(description="New context/summary (2-64 chars, free text)"),
 ) -> dict[str, Any]:
     """Update the context/summary of a knowledge entry.
 
@@ -632,7 +564,7 @@ async def update_knowledge_context(
     validate_context(new_context)
 
     try:
-        result = await get_db().update_knowledge_context(knowledge_id, new_context)
+        result = await database.update_knowledge_context(knowledge_id, new_context)
 
         await ctx.info(f"Updated context for knowledge entry {knowledge_id}")
         return result
@@ -645,13 +577,11 @@ async def update_knowledge_context(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def move_knowledge_to_scope(
-        ctx: Context,
-        knowledge_id: int = Field(description="Knowledge entry ID to move"),
-        new_canonical_scope_name: str = Field(
-            description=(
-                    "Target scope 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
+    ctx: Context,
+    knowledge_id: int = Field(description="Knowledge entry ID to move"),
+    new_canonical_scope_name: str = Field(
+        description="Target scope 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    ),
 ) -> dict[str, Any]:
     """Move knowledge entry to a different scope.
 
@@ -669,11 +599,9 @@ async def move_knowledge_to_scope(
     validate_canonical_scope_name(new_canonical_scope_name)
 
     try:
-        result = await get_db().move_knowledge_to_scope(knowledge_id, new_canonical_scope_name)
+        result = await database.move_knowledge_to_scope(knowledge_id, new_canonical_scope_name)
 
-        await ctx.info(
-            f"Moved knowledge entry {knowledge_id} to scope '{new_canonical_scope_name}'"
-        )
+        await ctx.info(f"Moved knowledge entry {knowledge_id} to scope '{new_canonical_scope_name}'")
         return result
 
     except Exception as e:
@@ -684,9 +612,9 @@ async def move_knowledge_to_scope(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def update_knowledge_task_size(
-        ctx: Context,
-        knowledge_id: int = Field(description="Knowledge entry ID to update"),
-        new_task_size: str = Field(description="New task complexity (XS/S/M/L/XL)"),
+    ctx: Context,
+    knowledge_id: int = Field(description="Knowledge entry ID to update"),
+    new_task_size: str = Field(description="New task complexity (XS/S/M/L/XL)"),
 ) -> dict[str, Any]:
     """Update task size classification for a knowledge entry.
 
@@ -704,7 +632,7 @@ async def update_knowledge_task_size(
     validate_task_size(new_task_size)
 
     try:
-        result = await get_db().update_knowledge_task_size(knowledge_id, new_task_size)
+        result = await database.update_knowledge_task_size(knowledge_id, new_task_size)
 
         await ctx.info(f"Updated task size for knowledge entry {knowledge_id} to '{new_task_size}'")
         return result
@@ -717,8 +645,8 @@ async def update_knowledge_task_size(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def delete_knowledge(
-        ctx: Context,
-        knowledge_id: int = Field(description="Knowledge entry ID to delete permanently"),
+    ctx: Context,
+    knowledge_id: int = Field(description="Knowledge entry ID to delete permanently"),
 ) -> dict[str, Any]:
     """Remove knowledge entry from the system (cannot be undone).
 
@@ -733,7 +661,7 @@ async def delete_knowledge(
     await ctx.info(f"Deleting knowledge entry {knowledge_id}")
 
     try:
-        result = await get_db().delete_knowledge(knowledge_id)
+        result = await database.delete_knowledge(knowledge_id)
 
         await ctx.info(f"Deleted knowledge entry {knowledge_id}")
         return result
@@ -746,9 +674,9 @@ async def delete_knowledge(
 # noinspection PyIncorrectDocstring
 @mcp.tool
 async def resolve_knowledge_conflict(
-        ctx: Context,
-        active_knowledge_id: int = Field(description="Knowledge ID to keep as active/authoritative"),
-        suppressed_knowledge_ids: list[int] = Field(description="Knowledge IDs to mark as superseded"),
+    ctx: Context,
+    active_knowledge_id: int = Field(description="Knowledge ID to keep as active/authoritative"),
+    suppressed_knowledge_ids: list[int] = Field(description="Knowledge IDs to mark as superseded"),  # noqa: B008
 ) -> dict[str, Any]:
     """Mark knowledge entries for conflict resolution when contradictory information exists.
 
@@ -763,21 +691,17 @@ async def resolve_knowledge_conflict(
         Dictionary with conflict resolution details
     """
     await ctx.info(
-        f"Resolving conflict: keeping {active_knowledge_id}, "
-        f"suppressing {len(suppressed_knowledge_ids)} entries"
+        f"Resolving conflict: keeping {active_knowledge_id}, suppressing {len(suppressed_knowledge_ids)} entries"
     )
 
     if not suppressed_knowledge_ids:
         raise ValueError("suppressed_knowledge_ids cannot be empty")
 
     try:
-        result = await get_db().resolve_knowledge_conflict(
-            active_knowledge_id, suppressed_knowledge_ids
-        )
+        result = await database.resolve_knowledge_conflict(active_knowledge_id, suppressed_knowledge_ids)
 
         await ctx.info(
-            f"Resolved conflict: {active_knowledge_id} active, "
-            f"{len(suppressed_knowledge_ids)} entries suppressed"
+            f"Resolved conflict: {active_knowledge_id} active, {len(suppressed_knowledge_ids)} entries suppressed"
         )
         return result
 
@@ -793,18 +717,114 @@ async def resolve_knowledge_conflict(
 
 # noinspection PyIncorrectDocstring
 @mcp.tool
+async def list_config(ctx: Context) -> dict[str, Any]:
+    """List all configuration settings with their current and default values.
+
+    Returns all system configuration parameters that control search behavior
+    and other system operations. Shows both current and default values.
+
+    Returns:
+        Dictionary with all config keys and their values, defaults, types, and descriptions
+    """
+    await ctx.info("Listing all configuration settings")
+
+    try:
+        result = await database.list_config()
+
+        await ctx.debug(f"Retrieved {len(result.get('configs', {}))} configuration settings")
+        return result
+
+    except Exception as e:
+        await ctx.error(f"Failed to list configuration: {str(e)}")
+        raise
+
+
+# noinspection PyIncorrectDocstring
+@mcp.tool
+async def update_config(
+    ctx: Context,
+    key: str = Field(description="Configuration key to update (e.g., 'search.max_results')"),
+    value: str = Field(description="New value for the configuration (will be validated)"),
+) -> dict[str, Any]:
+    """Update a configuration value.
+
+    Updates a system configuration parameter. The value will be validated
+    against the expected type before being applied.
+
+    Args:
+        key: Configuration key to update
+        value: New value (will be validated against the type)
+
+    Returns:
+        Dictionary with the old value and new value
+    """
+    await ctx.info(f"Updating configuration '{key}' to '{value}'")
+
+    if not key:
+        raise ValueError("Configuration key cannot be empty")
+    if value is None:
+        raise ValueError("Configuration value cannot be null")
+
+    try:
+        result = await database.update_config(key, value)
+
+        await ctx.info(f"Updated configuration '{key}' from '{result.get('old_value')}' to '{result.get('new_value')}'")
+        return result
+
+    except Exception as e:
+        await ctx.error(f"Failed to update configuration '{key}': {str(e)}")
+        raise
+
+
+# noinspection PyIncorrectDocstring
+@mcp.tool
+async def reset_config(
+    ctx: Context, key: str = Field(description="Configuration key to reset to default (e.g., 'search.max_results')")
+) -> dict[str, Any]:
+    """Reset a configuration value to its default.
+
+    Resets a system configuration parameter back to its original default value.
+    Useful for recovering from misconfigurations.
+
+    Args:
+        key: Configuration key to reset
+
+    Returns:
+        Dictionary with the reset value
+    """
+    await ctx.info(f"Resetting configuration '{key}' to default")
+
+    if not key:
+        raise ValueError("Configuration key cannot be empty")
+
+    try:
+        result = await database.reset_config(key)
+
+        await ctx.info(f"Reset configuration '{key}' to default value '{result.get('value')}'")
+        return result
+
+    except Exception as e:
+        await ctx.error(f"Failed to reset configuration '{key}': {str(e)}")
+        raise
+
+
+# ============================================================================
+# KNOWLEDGE DISCOVERY TOOLS - Search and retrieval operations
+# ============================================================================
+
+
+# noinspection PyIncorrectDocstring
+@mcp.tool
 async def search_knowledge_base(
-        ctx: Context,
-        queries: list[str] = Field(description="Search terms like ['REST API', 'authentication']"),
-        canonical_scope_name: str = Field(
-            description=(
-                    "Search scope 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
-            )
-        ),
-        task_size: str | None = Field(
-            default=None,
-            description="Filter by task complexity (XS/S/M/L/XL), omit to include all sizes",
-        ),
+    ctx: Context,
+    queries: list[str] = Field(description="Search terms like ['REST API', 'authentication']"),  # noqa: B008
+    canonical_scope_name: str = Field(
+        description="Search scope 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    ),
+    task_size: str | None = Field(
+        default=None,
+        description="Filter by task complexity (XS/S/M/L/XL), omit to include all sizes",
+    ),
 ) -> dict[str, Any]:
     """Search knowledge base using multiple queries within the scope hierarchy.
 
@@ -829,7 +849,7 @@ async def search_knowledge_base(
         validate_task_size(task_size)
 
     try:
-        result = await get_db().search_knowledge_base(queries, canonical_scope_name, task_size)
+        result = await database.search_knowledge_base(queries, canonical_scope_name, task_size)
 
         # Count total results
         total_results = sum(len(entries) for entries in result.values())

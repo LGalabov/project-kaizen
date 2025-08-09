@@ -1,8 +1,4 @@
-"""
-Utility functions for Project Kaizen MCP Server.
-
-This module provides common utility functions used across the application.
-"""
+"""Utility functions for Project Kaizen MCP Server."""
 
 from typing import Literal, cast
 
@@ -22,11 +18,8 @@ def parse_transport(value: str | None, default: str = "stdio") -> Literal["stdio
         ValueError: If transport value is invalid
     """
     transport = value if value is not None else default
-
     if transport not in ("stdio", "http"):
         raise ValueError(f"Invalid transport: {transport}. Must be 'stdio' or 'http'")
-
-    # Type narrowing - at this point we know it's a valid literal
     return cast(Literal["stdio", "http"], transport)
 
 
@@ -45,6 +38,5 @@ def parse_canonical_scope_name(canonical_scope_name: str) -> tuple[str, str]:
     """
     if ":" not in canonical_scope_name:
         raise ValueError("Canonical scope name must be in format 'namespace:scope'")
-
     namespace_name, scope_name = canonical_scope_name.split(":", 1)
     return namespace_name, scope_name
