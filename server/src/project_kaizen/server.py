@@ -12,6 +12,7 @@ from .validators import (
     validate_context,
     validate_description,
     validate_namespace_name,
+    validate_query_terms,
     validate_scope_name,
     validate_task_size,
 )
@@ -478,7 +479,10 @@ async def write_knowledge(
         description="Target scope 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
     ),
     content: str = Field(description="Knowledge content (non-empty, free text)"),
-    context: str = Field(description="Summary/context of the knowledge (2-64 chars, free text)"),
+    context: str = Field(
+        description="Summary/context keywords (1-20 space-separated keywords, "
+        + "2-32 chars each, lowercase letters/digits only)"
+    ),
     task_size: str | None = Field(default=None, description="Task complexity (XS/S/M/L/XL), null if not classified"),
 ) -> dict[str, Any]:
     """Store new knowledge entry with optional task size classification.
@@ -552,7 +556,10 @@ async def update_knowledge_content(
 async def update_knowledge_context(
     ctx: Context,
     knowledge_id: int = Field(description="Knowledge entry ID to update"),
-    new_context: str = Field(description="New context/summary (2-64 chars, free text)"),
+    new_context: str = Field(
+        description="New context/summary keywords (1-20 space-separated keywords, "
+        + "2-32 chars each, lowercase letters/digits only)"
+    ),
 ) -> dict[str, Any]:
     """Update the context/summary of a knowledge entry.
 
@@ -823,7 +830,10 @@ async def reset_config(
 @mcp.tool
 async def search_knowledge_base(
     ctx: Context,
-    queries: list[str] = Field(description="Search terms like ['REST API', 'authentication']"),  # noqa: B008
+    queries: list[str] = Field(  # noqa: B008
+        description="Search terms like ['database postgresql', 'authentication oauth'] "
+        + "(1-15 queries, each 1-10 keywords, 2-32 chars each, lowercase letters/digits only)"
+    ),
     canonical_scope_name: str = Field(
         description="Search scope 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
     ),
@@ -847,9 +857,7 @@ async def search_knowledge_base(
     """
     await ctx.info(f"Searching with {len(queries)} queries in scope '{canonical_scope_name}'")
 
-    if not queries:
-        raise ValueError("queries cannot be empty")
-
+    validate_query_terms(queries)
     validate_canonical_scope_name(canonical_scope_name)
     if task_size is not None:
         validate_task_size(task_size)

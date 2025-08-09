@@ -6,7 +6,6 @@ BEGIN
     -- Disable protection triggers
     ALTER TABLE namespaces DISABLE TRIGGER trigger_prevent_global_namespace_deletion;
     ALTER TABLE scopes DISABLE TRIGGER trigger_prevent_default_scope_deletion;
-    ALTER TABLE config DISABLE TRIGGER prevent_config_insert_delete_update;
     
     -- Clean all data (CASCADE handles everything)
     DELETE FROM namespaces;
@@ -18,14 +17,9 @@ BEGIN
     -- Re-enable protection triggers
     ALTER TABLE namespaces ENABLE TRIGGER trigger_prevent_global_namespace_deletion;
     ALTER TABLE scopes ENABLE TRIGGER trigger_prevent_default_scope_deletion;
-    ALTER TABLE config ENABLE TRIGGER prevent_config_insert_delete_update;
     
     -- Reset all config values to defaults
-    PERFORM reset_config('search.relevance_threshold');
-    PERFORM reset_config('search.language');
-    PERFORM reset_config('search.max_results');
-    PERFORM reset_config('search.context_weight');
-    PERFORM reset_config('search.content_weight');
+    UPDATE config SET value = default_value, updated_at = NOW();
     
     -- Refresh materialized view
     REFRESH MATERIALIZED VIEW CONCURRENTLY mv_active_knowledge_search;

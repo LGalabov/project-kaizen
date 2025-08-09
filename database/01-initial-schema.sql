@@ -264,38 +264,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
--- Update function
-CREATE OR REPLACE FUNCTION update_config(config_key TEXT, config_value TEXT)
-RETURNS VOID AS $$
-BEGIN
-    UPDATE config 
-    SET value = config_value, updated_at = NOW()
-    WHERE key = config_key;
-    
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Configuration key "%" does not exist and cannot be created. Only existing configuration values can be updated.', config_key;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- Reset configuration to default value
-CREATE OR REPLACE FUNCTION reset_config(config_key TEXT)
-RETURNS TEXT AS $$
-DECLARE
-    default_val TEXT;
-BEGIN
-    UPDATE config 
-    SET value = default_value, updated_at = NOW()
-    WHERE key = config_key
-    RETURNING default_value INTO default_val;
-    
-    IF default_val IS NULL THEN
-        RAISE EXCEPTION 'Configuration key "%" does not exist', config_key;
-    END IF;
-    
-    RETURN default_val;
-END;
-$$ LANGUAGE plpgsql;
 
 -- =============================================================================
 -- SCOPE HIERARCHY FUNCTIONS
@@ -618,57 +586,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Configuration validation and protection
-CREATE OR REPLACE FUNCTION validate_config_type() RETURNS TRIGGER AS $$
-BEGIN
-    BEGIN
-        CASE NEW.value_type
-            WHEN 'text' THEN
-                NULL;
-            WHEN 'integer' THEN
-                PERFORM NEW.value::INTEGER;
-            WHEN 'float' THEN
-                PERFORM NEW.value::DOUBLE PRECISION;
-            WHEN 'boolean' THEN
-                PERFORM NEW.value::BOOLEAN;
-            WHEN 'regconfig' THEN
-                PERFORM NEW.value::regconfig;
-        END CASE;
-    EXCEPTION
-        WHEN invalid_text_representation THEN
-            RAISE EXCEPTION 'Configuration value "%" is invalid for type %. Please provide a valid % value.', NEW.value, NEW.value_type, NEW.value_type;
-        WHEN numeric_value_out_of_range THEN
-            RAISE EXCEPTION 'Configuration value "%" is out of range for type %. Please provide a valid % value.', NEW.value, NEW.value_type, NEW.value_type;
-    END;
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION prevent_config_changes() RETURNS TRIGGER AS $$
-BEGIN
-    IF TG_OP = 'INSERT' THEN
-        RAISE EXCEPTION 'Configuration keys cannot be inserted. Use update_config() to modify existing configuration values only.';
-    ELSIF TG_OP = 'DELETE' THEN
-        RAISE EXCEPTION 'Configuration keys cannot be deleted. Use update_config() to modify existing configuration values only.';
-    ELSIF TG_OP = 'UPDATE' THEN
-        -- Only allow changes to value and updated_at columns
-        IF OLD.key != NEW.key THEN
-            RAISE EXCEPTION 'Configuration key cannot be modified. Use update_config() to change the value only.';
-        END IF;
-        IF OLD.value_type != NEW.value_type THEN
-            RAISE EXCEPTION 'Configuration value_type cannot be modified. Use update_config() to change the value only.';
-        END IF;
-        IF OLD.description != NEW.description THEN
-            RAISE EXCEPTION 'Configuration description cannot be modified. Use update_config() to change the value only.';
-        END IF;
-        IF OLD.default_value != NEW.default_value THEN
-            RAISE EXCEPTION 'Configuration default_value cannot be modified. Defaults are immutable.';
-        END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
 -- =============================================================================
 -- TRIGGERS
@@ -722,16 +639,6 @@ CREATE TRIGGER trigger_refresh_active_knowledge_conflict
     FOR EACH STATEMENT
     EXECUTE FUNCTION refresh_active_knowledge_search();
 
--- Configuration protection
-CREATE TRIGGER validate_config_type_trigger
-    BEFORE INSERT OR UPDATE ON config
-    FOR EACH ROW
-    EXECUTE FUNCTION validate_config_type();
-
-CREATE TRIGGER prevent_config_insert_delete_update
-    BEFORE INSERT OR DELETE OR UPDATE ON config
-    FOR EACH ROW
-    EXECUTE FUNCTION prevent_config_changes();
 
 CREATE TRIGGER trigger_refresh_active_knowledge_scope_name
     AFTER UPDATE OF name ON scopes
@@ -751,15 +658,14 @@ INSERT INTO namespaces (name, description)
 VALUES ('global', 'Universal knowledge accessible everywhere')
 ON CONFLICT (name) DO NOTHING;
 
--- Initial configuration values (disable protection trigger for initial data)
-ALTER TABLE config DISABLE TRIGGER prevent_config_insert_delete_update;
+-- Initial configuration values
 INSERT INTO config (key, value, default_value, value_type, description) VALUES
 ('search.relevance_threshold', '0.4', '0.4', 'float', 'Minimum ts_rank score for search results'),
 ('search.language', 'english', 'english', 'regconfig', 'Full-text search language configuration'),
 ('search.max_results', '50', '50', 'integer', 'Maximum number of results per query'),
 ('search.context_weight', '1.0', '1.0', 'float', 'Weight for context field (A label) in search ranking'),
-('search.content_weight', '0.4', '0.4', 'float', 'Weight for content field (B label) in search ranking');
-ALTER TABLE config ENABLE TRIGGER prevent_config_insert_delete_update;
+('search.content_weight', '0.4', '0.4', 'float', 'Weight for content field (B label) in search ranking')
+ON CONFLICT (key) DO NOTHING;
 
 -- =============================================================================
 -- PERFORMANCE TUNING
@@ -801,7 +707,3 @@ COMMENT ON FUNCTION get_config_integer IS 'Get configuration value as integer - 
 COMMENT ON FUNCTION get_config_float IS 'Get configuration value as float - validates type';
 COMMENT ON FUNCTION get_config_boolean IS 'Get configuration value as boolean - validates type';
 COMMENT ON FUNCTION get_config_regconfig IS 'Get configuration value as regconfig - validates type';
-COMMENT ON FUNCTION update_config IS 'Update configuration value with type validation - only value changes allowed';
-COMMENT ON FUNCTION reset_config IS 'Reset configuration value to its default';
-COMMENT ON FUNCTION validate_config_type IS 'Validates configuration values match their declared types';
-COMMENT ON FUNCTION prevent_config_changes IS 'Prevents insert/delete and protects key/type/description from changes';

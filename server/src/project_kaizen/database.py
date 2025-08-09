@@ -79,6 +79,9 @@ async def get_namespace_details(namespace_name: str) -> dict[str, Any]:
 
 async def rename_namespace(old_namespace_name: str, new_namespace_name: str) -> dict[str, Any]:
     """Rename a namespace (all references auto-updated via cascade)."""
+    if old_namespace_name == "global":
+        raise ValueError("Cannot rename the global namespace")
+    
     pool = await get_pool()
 
     async with pool.acquire() as conn:
@@ -104,6 +107,9 @@ async def rename_namespace(old_namespace_name: str, new_namespace_name: str) -> 
 
 async def update_namespace_description(namespace_name: str, new_description: str) -> dict[str, Any]:
     """Update namespace description only."""
+    if namespace_name == "global":
+        raise ValueError("Cannot modify the global namespace description")
+    
     pool = await get_pool()
 
     async with pool.acquire() as conn:
@@ -223,6 +229,9 @@ async def rename_scope(canonical_scope_name: str, new_scope_name: str) -> dict[s
 
 async def update_scope_description(canonical_scope_name: str, new_description: str) -> dict[str, Any]:
     """Update scope description only."""
+    if canonical_scope_name == "global:default":
+        raise ValueError("Cannot modify the global:default scope description")
+    
     namespace_name, scope_name = parse_canonical_scope_name(canonical_scope_name)
     pool = await get_pool()
 
@@ -554,32 +563,81 @@ async def list_config() -> dict[str, Any]:
 
 
 async def update_config(key: str, value: str) -> dict[str, Any]:
-    """Update a configuration value."""
+    """Update a configuration value with comprehensive validation."""
+    if not key or not key.strip():
+        raise ValueError("Configuration key cannot be empty")
+    
+    if value is None:
+        raise ValueError("Configuration value cannot be None")
+    
     pool = await get_pool()
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            old_value = await conn.fetchval("SELECT value FROM config WHERE key = $1", key)
+            # Get current config details
+            config_row = await conn.fetchrow(
+                "SELECT value, value_type, description FROM config WHERE key = $1", key
+            )
 
-            if old_value is None:
+            if not config_row:
                 raise ValueError(f"Configuration key '{key}' not found")
 
-            await conn.execute("SELECT update_config($1, $2)", key, value)
+            old_value = config_row["value"]
+            value_type = config_row["value_type"]
+            
+            # Validate the new value matches the expected type
+            try:
+                if value_type == "integer":
+                    int(value)
+                elif value_type == "float":
+                    float(value)
+                elif value_type == "boolean":
+                    if value.lower() not in ("true", "false"):
+                        raise ValueError("Boolean values must be 'true' or 'false'")
+                elif value_type == "regconfig":
+                    # Test if it's a valid regconfig by trying to cast it
+                    await conn.fetchval("SELECT $1::regconfig", value)
+                # 'text' type accepts any string value
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Configuration value '{value}' is invalid for type '{value_type}': {e}") from e
+            except Exception as e:
+                raise ValueError(f"Configuration value '{value}' is invalid for type '{value_type}'") from e
+
+            # Update the configuration (bypassing the database function)
+            await conn.execute(
+                "UPDATE config SET value = $2, updated_at = NOW() WHERE key = $1", 
+                key, value
+            )
 
             return {"key": key, "old_value": old_value, "new_value": value}
 
 
 async def reset_config(key: str) -> dict[str, Any]:
     """Reset a configuration to default."""
+    if not key or not key.strip():
+        raise ValueError("Configuration key cannot be empty")
+        
     pool = await get_pool()
 
     async with pool.acquire() as conn:
-        reset_value = await conn.fetchval("SELECT reset_config($1)", key)
+        async with conn.transaction():
+            # Get the default value and reset
+            config_row = await conn.fetchrow(
+                "SELECT default_value FROM config WHERE key = $1", key
+            )
+            
+            if not config_row:
+                raise ValueError(f"Configuration key '{key}' not found")
+                
+            default_value = config_row["default_value"]
+            
+            # Update to default value
+            await conn.execute(
+                "UPDATE config SET value = default_value, updated_at = NOW() WHERE key = $1",
+                key
+            )
 
-        if reset_value is None:
-            raise ValueError(f"Configuration key '{key}' not found")
-
-        return {"key": key, "value": reset_value}
+            return {"key": key, "value": default_value}
 
 
 # ============================================================================
