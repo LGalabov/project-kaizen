@@ -717,7 +717,7 @@ async def resolve_knowledge_conflict(
 
 
 # ============================================================================
-# KNOWLEDGE DISCOVERY TOOLS - Search and retrieval operations
+# CONFIG TOOLS - System configuration management
 # ============================================================================
 
 

@@ -3,7 +3,7 @@
 import sys
 from typing import Any
 
-import asyncpg  # type: ignore[import-untyped]
+import asyncpg
 
 from .config import Config
 from .utils import parse_canonical_scope_name
@@ -287,7 +287,7 @@ async def remove_scope_parents(canonical_scope_name: str, parent_canonical_scope
             if not scope_exists:
                 raise ValueError(f"Scope '{canonical_scope_name}' not found")
             else:
-                raise ValueError(f"One or more parent scopes not found or not parents of this scope")
+                raise ValueError("One or more parent scopes not found or not parents of this scope")
 
         return {
             "scope": canonical_scope_name,

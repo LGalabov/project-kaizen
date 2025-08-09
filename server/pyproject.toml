@@ -50,6 +50,7 @@ module = [
     "asyncpg.*",
     "fastmcp.*",
 ]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["project_kaizen.server"]
