@@ -209,7 +209,7 @@ async def delete_namespace(
             f"and {result.get('knowledge_count', 0)} knowledge entries"
         )
         
-        # Return with expected keys for tests
+        # Return with expected keys for tests -- TODO fix
         return {
             "namespace": namespace_name,
             "deleted_scopes": result.get("scopes_count", 0),
@@ -378,7 +378,7 @@ async def add_scope_parent(
     validate_canonical_scope_name(parent_canonical_scope_name)
 
     try:
-        result = await database.add_scope_parent(canonical_scope_name, parent_canonical_scope_name)
+        result = await database.add_scope_parents(canonical_scope_name, [parent_canonical_scope_name])
 
         await ctx.info(f"Added parent '{parent_canonical_scope_name}' to scope '{canonical_scope_name}'")
         return result
@@ -417,7 +417,7 @@ async def remove_scope_parent(
     validate_canonical_scope_name(parent_canonical_scope_name)
 
     try:
-        result = await database.remove_scope_parent(canonical_scope_name, parent_canonical_scope_name)
+        result = await database.remove_scope_parents(canonical_scope_name, [parent_canonical_scope_name])
 
         await ctx.info(f"Removed parent '{parent_canonical_scope_name}' from scope '{canonical_scope_name}'")
         return result
@@ -857,7 +857,6 @@ async def search_knowledge_base(
     try:
         result = await database.search_knowledge_base(queries, canonical_scope_name, task_size)
 
-        # Count total results
         total_results = sum(len(entries) for entries in result.values())
         await ctx.info(f"Found {total_results} knowledge entries across {len(result)} scopes")
 

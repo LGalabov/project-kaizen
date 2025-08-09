@@ -22,8 +22,11 @@ def validate_namespace_name(namespace_name: str | None) -> None:
     Raises:
         ValueError: if namespace_name contains invalid characters or a wrong length
     """
-    if not namespace_name:
+    if namespace_name is None or namespace_name == "":
         raise ValueError("Namespace name cannot be empty")
+    
+    if not namespace_name.strip():
+        raise ValueError("Namespace name cannot be just whitespace")
 
     if len(namespace_name) < 2 or len(namespace_name) > 64:
         raise ValueError("Namespace name must be 2-64 characters")
@@ -39,8 +42,11 @@ def validate_scope_name(scope_name: str | None) -> None:
     Raises:
         ValueError: if scope_name contains invalid characters or a wrong length
     """
-    if not scope_name:
+    if scope_name is None or scope_name == "":
         raise ValueError("Scope name cannot be empty")
+    
+    if not scope_name.strip():
+        raise ValueError("Scope name cannot be just whitespace")
 
     if len(scope_name) < 2 or len(scope_name) > 64:
         raise ValueError("Scope name must be 2-64 characters")
@@ -52,13 +58,15 @@ def validate_scope_name(scope_name: str | None) -> None:
 def validate_canonical_scope_name(canonical_scope_name: str | None) -> None:
     """
     Validates canonical scope name format 'namespace:scope' (5-129 chars total).
-    Accepts None/empty values.
 
     Raises:
         ValueError: if the format is invalid, or parts don't meet requirements
     """
-    if not canonical_scope_name:
-        return
+    if canonical_scope_name is None or canonical_scope_name == "":
+        raise ValueError("Canonical scope name cannot be empty")
+    
+    if not canonical_scope_name.strip():
+        raise ValueError("Canonical scope name cannot be just whitespace")
 
     if len(canonical_scope_name) < 5 or len(canonical_scope_name) > 129:
         raise ValueError("Canonical scope name must be 5-129 characters")
@@ -68,7 +76,6 @@ def validate_canonical_scope_name(canonical_scope_name: str | None) -> None:
 
     namespace_name, scope_name = canonical_scope_name.split(":", 1)
 
-    # Delegate to individual validators
     validate_namespace_name(namespace_name)
     validate_scope_name(scope_name)
 
@@ -76,14 +83,13 @@ def validate_canonical_scope_name(canonical_scope_name: str | None) -> None:
 def validate_description(description: str | None) -> None:
     """
     Validates description is 2-64 chars and not just whitespace.
-    Accepts None/empty values.
 
     Raises:
         ValueError: if the description is just whitespace or wrong length
     """
-    if not description:
-        return
-
+    if description is None or description == "":
+        raise ValueError("Description cannot be empty")
+    
     if not description.strip():
         raise ValueError("Description cannot be just whitespace")
 
@@ -93,44 +99,51 @@ def validate_description(description: str | None) -> None:
 
 def validate_content(content: str | None) -> None:
     """
-    Validates knowledge content is not just whitespace.
-    Accepts None/empty values.
+    Validates knowledge content is not empty or just whitespace.
 
     Raises:
-        ValueError: if content is only whitespace
+        ValueError: if content is empty or only whitespace
     """
-    if not content:
-        return
-
+    if content is None or content == "":
+        raise ValueError("Knowledge content cannot be empty")
+    
     if not content.strip():
         raise ValueError("Knowledge content cannot be just whitespace")
 
 
 def validate_context(context: str | None) -> None:
     """
-    Validates knowledge context is not just whitespace.
-    Accepts None/empty values.
+    Validates knowledge context is 2-64 chars and not just whitespace.
 
     Raises:
-        ValueError: if context is only whitespace
+        ValueError: if context is empty, only whitespace, or wrong length
     """
-    if not context:
-        return
-
+    if context is None or context == "":
+        raise ValueError("Knowledge context cannot be empty")
+    
     if not context.strip():
         raise ValueError("Knowledge context cannot be just whitespace")
+    
+    if len(context) < 2 or len(context) > 64:
+        raise ValueError("Knowledge context must be 2-64 characters")
 
 
 def validate_task_size(task_size: str | None) -> None:
     """
     Validates task size is one of: 'XS', 'S', 'M', 'L', 'XL'.
-    Accepts None/empty values.
+    Accepts None for optional fields.
 
     Raises:
         ValueError: if task_size is not a valid option
     """
-    if not task_size:
+    if task_size is None:
         return
+    
+    if task_size == "":
+        raise ValueError("Task size cannot be empty string")
+    
+    if not task_size.strip():
+        raise ValueError("Task size cannot be just whitespace")
 
     if task_size not in VALID_TASK_SIZES:
         raise ValueError(f"Task size must be one of: {', '.join(sorted(VALID_TASK_SIZES))}")

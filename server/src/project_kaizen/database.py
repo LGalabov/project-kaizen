@@ -71,10 +71,7 @@ async def get_namespace_details(namespace_name: str) -> dict[str, Any]:
     if namespace_name not in data["namespaces"]:
         raise ValueError(f"Namespace '{namespace_name}' not found")
 
-    # Return the specific namespace data in the expected format
     ns_data = data["namespaces"][namespace_name]
-    
-    # Convert scope names to canonical format (namespace:scope)
     canonical_scopes = [f"{namespace_name}:{scope_name}" for scope_name in ns_data["scopes"].keys()]
     
     return {"namespace": namespace_name, "description": ns_data["description"], "scopes": canonical_scopes}
@@ -86,7 +83,6 @@ async def rename_namespace(old_namespace_name: str, new_namespace_name: str) -> 
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            # Update namespace name - cascades are handled by database
             result = await conn.fetchrow(
                 """UPDATE namespaces 
                    SET name = $2, updated_at = NOW()
@@ -111,7 +107,6 @@ async def update_namespace_description(namespace_name: str, new_description: str
     pool = await get_pool()
 
     async with pool.acquire() as conn:
-        # Simple update of the description field
         result = await conn.fetchrow(
             """UPDATE namespaces 
                SET description = $2, updated_at = NOW()
@@ -133,7 +128,6 @@ async def delete_namespace(namespace_name: str) -> dict[str, Any]:
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            # Get statistics before deletion
             stats = await conn.fetchrow(
                 """
                 SELECT 
@@ -151,7 +145,6 @@ async def delete_namespace(namespace_name: str) -> dict[str, Any]:
             if not stats:
                 raise ValueError(f"Namespace '{namespace_name}' not found")
 
-            # Delete namespace (cascades to scopes and knowledge)
             await conn.execute("DELETE FROM namespaces WHERE name = $1", namespace_name)
 
             return {
@@ -173,13 +166,11 @@ async def create_scope(canonical_scope_name: str, description: str, parents: lis
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            # Get namespace ID
             ns_id = await conn.fetchval("SELECT id FROM namespaces WHERE name = $1", namespace_name)
 
             if not ns_id:
                 raise ValueError(f"Namespace '{namespace_name}' not found")
 
-            # Create scope - trigger adds default parent automatically
             await conn.execute(
                 """INSERT INTO scopes (namespace_id, name, description)
                    VALUES ($1, $2, $3)""",
@@ -199,6 +190,10 @@ async def create_scope(canonical_scope_name: str, description: str, parents: lis
 async def rename_scope(canonical_scope_name: str, new_scope_name: str) -> dict[str, Any]:
     """Rename a scope within the same namespace (references auto-updated)."""
     namespace_name, old_scope_name = parse_canonical_scope_name(canonical_scope_name)
+    
+    if old_scope_name == "default":
+        raise ValueError("Cannot rename default scope")
+    
     pool = await get_pool()
 
     async with pool.acquire() as conn:
@@ -251,13 +246,13 @@ async def update_scope_description(canonical_scope_name: str, new_description: s
         return {"scope": canonical_scope_name, "description": new_description}
 
 
-async def add_scope_parent(canonical_scope_name: str, parent_canonical_scope_name: str) -> dict[str, Any]:
-    """Add a parent relationship to an existing scope."""
+async def add_scope_parents(canonical_scope_name: str, parent_canonical_scope_names: list[str]) -> dict[str, Any]:
+    """Add parent relationships to an existing scope."""
     pool = await get_pool()
 
     async with pool.acquire() as conn:
         final_parents = await conn.fetchval(
-            "SELECT add_scope_parents($1, $2)", canonical_scope_name, [parent_canonical_scope_name]
+            "SELECT add_scope_parents($1, $2)", canonical_scope_name, parent_canonical_scope_names
         )
 
         if final_parents is None:
@@ -265,19 +260,18 @@ async def add_scope_parent(canonical_scope_name: str, parent_canonical_scope_nam
 
         return {
             "scope": canonical_scope_name,
-            "added_parent": parent_canonical_scope_name,
-            "all_parents": final_parents,
+            "added_parents": parent_canonical_scope_names,
+            "parents": final_parents,
         }
 
 
-async def remove_scope_parent(canonical_scope_name: str, parent_canonical_scope_name: str) -> dict[str, Any]:
-    """Remove a parent relationship from a scope."""
+async def remove_scope_parents(canonical_scope_name: str, parent_canonical_scope_names: list[str]) -> dict[str, Any]:
+    """Remove parent relationships from a scope."""
     pool = await get_pool()
 
     async with pool.acquire() as conn:
-        # Use the database function to remove a parent
         remaining_parents = await conn.fetchval(
-            "SELECT remove_scope_parent($1, $2)", canonical_scope_name, parent_canonical_scope_name
+            "SELECT remove_scope_parents($1, $2)", canonical_scope_name, parent_canonical_scope_names
         )
 
         if remaining_parents is None:
@@ -293,12 +287,12 @@ async def remove_scope_parent(canonical_scope_name: str, parent_canonical_scope_
             if not scope_exists:
                 raise ValueError(f"Scope '{canonical_scope_name}' not found")
             else:
-                raise ValueError(f"Parent scope '{parent_canonical_scope_name}' not found")
+                raise ValueError(f"One or more parent scopes not found or not parents of this scope")
 
         return {
             "scope": canonical_scope_name,
-            "removed_parent": parent_canonical_scope_name,
-            "remaining_parents": remaining_parents or [],
+            "removed_parents": parent_canonical_scope_names,
+            "parents": remaining_parents or [],
         }
 
 
@@ -309,11 +303,9 @@ async def delete_scope(canonical_scope_name: str) -> dict[str, Any]:
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            # Check if it's a default scope (trigger will prevent deletion)
             if scope_name == "default":
                 raise ValueError("Cannot delete default scope")
 
-            # Get statistics before deletion
             stats = await conn.fetchrow(
                 """
                 SELECT COUNT(k.id) as knowledge_count
@@ -330,7 +322,6 @@ async def delete_scope(canonical_scope_name: str) -> dict[str, Any]:
             if not stats:
                 raise ValueError(f"Scope '{canonical_scope_name}' not found")
 
-            # Delete scope (cascades to knowledge)
             await conn.execute(
                 """
                 DELETE FROM scopes 
@@ -444,7 +435,6 @@ async def move_knowledge_to_scope(knowledge_id: int, new_canonical_scope_name: s
         )
 
         if not result:
-            # Check what failed - knowledge or scope
             knowledge_exists = await conn.fetchval("SELECT EXISTS(SELECT 1 FROM knowledge WHERE id = $1)", knowledge_id)
             if not knowledge_exists:
                 raise ValueError(f"Knowledge entry {knowledge_id} not found")
@@ -493,7 +483,6 @@ async def resolve_knowledge_conflict(active_knowledge_id: int, suppressed_knowle
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            # Check all IDs exist
             all_ids = [active_knowledge_id] + suppressed_knowledge_ids
             existing_ids = await conn.fetch("SELECT id FROM knowledge WHERE id = ANY($1)", all_ids)
 
@@ -522,12 +511,10 @@ async def search_knowledge_base(queries: list[str], canonical_scope_name: str, t
     pool = await get_pool()
 
     async with pool.acquire() as conn:
-        # Use the database function search_knowledge_base for search
         rows = await conn.fetch(
             "SELECT * FROM search_knowledge_base($1, $2, $3)", queries, canonical_scope_name, task_size
         )
 
-        # Organize results by scope
         result: dict[str, dict[int, str]] = {}
         for row in rows:
             scope_key = row["qualified_scope_name"]
@@ -572,7 +559,6 @@ async def update_config(key: str, value: str) -> dict[str, Any]:
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            # Get old value first
             old_value = await conn.fetchval("SELECT value FROM config WHERE key = $1", key)
 
             if old_value is None:

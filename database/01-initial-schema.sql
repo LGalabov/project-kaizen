@@ -350,66 +350,140 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Adds parent relationships to a scope (keeps existing parents)
+-- Add parents to a scope (auto-adds namespace:default if no parents specified)
 CREATE OR REPLACE FUNCTION add_scope_parents(
     target_scope TEXT,
     parent_scope_names TEXT[]
 ) RETURNS TEXT[] AS $$
+DECLARE
+    child_id BIGINT;
+    parents_to_add TEXT[];
 BEGIN
-    -- Add new parent relationships directly using canonical names
-    IF parent_scope_names IS NOT NULL AND array_length(parent_scope_names, 1) > 0 THEN
-        INSERT INTO scope_parents (child_scope_id, parent_scope_id)
-        SELECT cs.id, ps.id
-        FROM scopes cs
-        JOIN namespaces cn ON cs.namespace_id = cn.id
-        CROSS JOIN unnest(parent_scope_names) AS parent_name
-        JOIN scopes ps ON ps.id != cs.id
-        JOIN namespaces pn ON ps.namespace_id = pn.id
-        WHERE cn.name || ':' || cs.name = target_scope
-          AND pn.name || ':' || ps.name = parent_name
-        ON CONFLICT DO NOTHING;
+    -- Validate target scope exists
+    SELECT s.id INTO child_id
+    FROM scopes s
+    JOIN namespaces n ON s.namespace_id = n.id
+    WHERE n.name || ':' || s.name = target_scope;
+    
+    IF child_id IS NULL THEN
+        RAISE EXCEPTION 'Scope ''%'' not found', target_scope;
+    END IF;
+    
+    -- Determine parents to add
+    IF array_length(parent_scope_names, 1) IS NULL THEN
+        -- No parents specified: add namespace:default unless this IS a default scope
+        IF split_part(target_scope, ':', 2) != 'default' THEN
+            parents_to_add := ARRAY[split_part(target_scope, ':', 1) || ':default'];
+        ELSE
+            RETURN ARRAY[]::TEXT[];  -- Default scopes have no parents
+        END IF;
+    ELSE
+        parents_to_add := parent_scope_names;
+    END IF;
+    
+    -- Validate self-reference
+    IF target_scope = ANY(parents_to_add) THEN
+        RAISE EXCEPTION 'A scope cannot be its own parent';
+    END IF;
+    
+    -- Insert parent relationships (skip duplicates)
+    INSERT INTO scope_parents (child_scope_id, parent_scope_id)
+    SELECT child_id, ps.id
+    FROM unnest(parents_to_add) AS parent_name
+    JOIN scopes ps ON ps.name = split_part(parent_name, ':', 2)
+    JOIN namespaces pn ON pn.id = ps.namespace_id AND pn.name = split_part(parent_name, ':', 1)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM scope_parents sp 
+        WHERE sp.child_scope_id = child_id AND sp.parent_scope_id = ps.id
+    );
+    
+    -- Verify all parents were found (if any failed, ps.id would be NULL)
+    IF EXISTS (
+        SELECT 1 FROM unnest(parents_to_add) AS parent_name
+        WHERE NOT EXISTS (
+            SELECT 1 FROM scopes s
+            JOIN namespaces n ON n.id = s.namespace_id
+            WHERE n.name || ':' || s.name = parent_name
+        )
+    ) THEN
+        RAISE EXCEPTION 'One or more parent scopes not found';
     END IF;
     
     -- Return all current parents
-    RETURN (
-        SELECT array_agg(pn.name || ':' || ps.name ORDER BY pn.name || ':' || ps.name)
-        FROM scope_parents sp
-        JOIN scopes cs ON sp.child_scope_id = cs.id
-        JOIN namespaces cn ON cs.namespace_id = cn.id
-        JOIN scopes ps ON sp.parent_scope_id = ps.id
-        JOIN namespaces pn ON ps.namespace_id = pn.id
-        WHERE cn.name || ':' || cs.name = target_scope
+    RETURN COALESCE(
+        (SELECT array_agg(pn.name || ':' || ps.name ORDER BY pn.name || ':' || ps.name)
+         FROM scope_parents sp
+         JOIN scopes ps ON sp.parent_scope_id = ps.id
+         JOIN namespaces pn ON ps.namespace_id = pn.id
+         WHERE sp.child_scope_id = child_id),
+        ARRAY[]::TEXT[]
     );
 END;
 $$ LANGUAGE plpgsql;
 
--- Removes a parent relationship from a scope
-CREATE OR REPLACE FUNCTION remove_scope_parent(
+-- Remove parents from a scope (accepts array for bulk removal)
+CREATE OR REPLACE FUNCTION remove_scope_parents(
     target_scope TEXT,
-    parent_scope_name TEXT
+    parent_scope_names TEXT[]
 ) RETURNS TEXT[] AS $$
+DECLARE
+    child_id BIGINT;
+    removed_count INTEGER;
 BEGIN
-    -- Remove the parent relationship directly using canonical names
-    DELETE FROM scope_parents
-    WHERE (child_scope_id, parent_scope_id) IN (
-        SELECT cs.id, ps.id
-        FROM scopes cs
-        JOIN namespaces cn ON cs.namespace_id = cn.id
-        JOIN scopes ps ON ps.id != cs.id
-        JOIN namespaces pn ON ps.namespace_id = pn.id
-        WHERE cn.name || ':' || cs.name = target_scope
-          AND pn.name || ':' || ps.name = parent_scope_name
-    );
+    -- Validate target scope exists
+    SELECT s.id INTO child_id
+    FROM scopes s
+    JOIN namespaces n ON s.namespace_id = n.id
+    WHERE n.name || ':' || s.name = target_scope;
+    
+    IF child_id IS NULL THEN
+        RAISE EXCEPTION 'Scope ''%'' not found', target_scope;
+    END IF;
+    
+    -- If no parents specified, just return current parents
+    IF array_length(parent_scope_names, 1) IS NULL THEN
+        RETURN COALESCE(
+            (SELECT array_agg(pn.name || ':' || ps.name ORDER BY pn.name || ':' || ps.name)
+             FROM scope_parents sp
+             JOIN scopes ps ON sp.parent_scope_id = ps.id
+             JOIN namespaces pn ON ps.namespace_id = pn.id
+             WHERE sp.child_scope_id = child_id),
+            ARRAY[]::TEXT[]
+        );
+    END IF;
+    
+    -- Verify all parents exist as relationships before removing
+    IF EXISTS (
+        SELECT 1 FROM unnest(parent_scope_names) AS parent_name
+        WHERE NOT EXISTS (
+            SELECT 1 FROM scope_parents sp
+            JOIN scopes ps ON sp.parent_scope_id = ps.id
+            JOIN namespaces pn ON ps.namespace_id = pn.id
+            WHERE sp.child_scope_id = child_id 
+              AND pn.name || ':' || ps.name = parent_name
+        )
+    ) THEN
+        RAISE EXCEPTION 'One or more specified parents are not parents of this scope';
+    END IF;
+    
+    -- Remove specified parent relationships
+    DELETE FROM scope_parents sp
+    USING scopes ps, namespaces pn
+    WHERE sp.parent_scope_id = ps.id
+      AND ps.namespace_id = pn.id
+      AND sp.child_scope_id = child_id
+      AND pn.name || ':' || ps.name = ANY(parent_scope_names);
+    
+    GET DIAGNOSTICS removed_count = ROW_COUNT;
     
     -- Return remaining parents
-    RETURN (
-        SELECT array_agg(pn.name || ':' || ps.name ORDER BY pn.name || ':' || ps.name)
-        FROM scope_parents sp
-        JOIN scopes cs ON sp.child_scope_id = cs.id
-        JOIN namespaces cn ON cs.namespace_id = cn.id
-        JOIN scopes ps ON sp.parent_scope_id = ps.id
-        JOIN namespaces pn ON ps.namespace_id = pn.id
-        WHERE cn.name || ':' || cs.name = target_scope
+    RETURN COALESCE(
+        (SELECT array_agg(pn.name || ':' || ps.name ORDER BY pn.name || ':' || ps.name)
+         FROM scope_parents sp
+         JOIN scopes ps ON sp.parent_scope_id = ps.id
+         JOIN namespaces pn ON ps.namespace_id = pn.id
+         WHERE sp.child_scope_id = child_id),
+        ARRAY[]::TEXT[]
     );
 END;
 $$ LANGUAGE plpgsql;
@@ -715,7 +789,7 @@ COMMENT ON FUNCTION get_default_scope_id IS 'Returns default scope ID for any na
 COMMENT ON FUNCTION get_global_default_scope_id IS 'Returns global:default scope ID';
 COMMENT ON FUNCTION calculate_scope_ancestors IS 'Calculates complete ancestor chain including global:default for scope ID';
 COMMENT ON FUNCTION add_scope_parents IS 'Adds parent relationships to a scope without removing existing ones';
-COMMENT ON FUNCTION remove_scope_parent IS 'Removes a specific parent relationship from a scope';
+COMMENT ON FUNCTION remove_scope_parents IS 'Removes a specific parent relationship from a scope';
 COMMENT ON FUNCTION search_knowledge_base IS 'Multi-query knowledge retrieval with scope inheritance and relevance ranking';
 COMMENT ON FUNCTION enforce_default_parent IS 'Ensures all scopes inherit from default scope';
 COMMENT ON FUNCTION prevent_global_namespace_deletion IS 'Prevents deletion of the global namespace';

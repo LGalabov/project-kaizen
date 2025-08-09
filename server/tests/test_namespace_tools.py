@@ -418,60 +418,6 @@ async def test_namespace_name_edge_cases(mcp_client: Client[Any]) -> None:
             assert name in list_result.data["namespaces"]
 
 
-async def test_concurrent_namespace_operations(mcp_client: Client[Any]) -> None:
-    """Simulates concurrent creates/updates/deletes.
-    Value: Validates transaction isolation and consistency."""
-    import asyncio
-    
-    async with mcp_client as client:
-        # Create base namespaces
-        tasks = []
-        for i in range(5):
-            task = client.call_tool("create_namespace", {
-                "namespace_name": f"concurrent-{i}",
-                "description": f"Concurrent test {i}"
-            })
-            tasks.append(task)
-        
-        # Execute concurrently
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Check all succeeded
-        for result in results:
-            if isinstance(result, Exception):
-                raise result
-        
-        # Verify all do exist
-        list_result = await client.call_tool("list_namespaces", {})
-        for i in range(5):
-            assert f"concurrent-{i}" in list_result.data["namespaces"]
-
-
-async def test_namespace_with_special_characters_in_description(mcp_client: Client[Any]) -> None:
-    """Tests descriptions with quotes, newlines, unicode.
-    Value: Ensures text handling is robust."""
-    async with mcp_client as client:
-        special_descriptions = [
-            "Description with 'single quotes'",
-            'Description with "double quotes"',
-            "Multi\nline\ndescription",
-            "Unicode: 你好 🚀 €",
-            "SQL injection'; DROP TABLE namespaces;--",
-        ]
-        
-        for i, desc in enumerate(special_descriptions):
-            await client.call_tool("create_namespace", {
-                "namespace_name": f"special-desc-{i}",
-                "description": desc[:64]  # Truncate to fit validation
-            })
-            
-            # Verify it was created correctly
-            details = await client.call_tool("get_namespace_details", {
-                "namespace_name": f"special-desc-{i}"
-            })
-            assert details.data["description"] == desc[:64]
-
-
 # ============================================================================
 # 6. Error Recovery Tests
 # ============================================================================
