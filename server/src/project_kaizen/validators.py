@@ -7,9 +7,30 @@ used in the MCP server.
 
 import re
 
+from .utils import parse_canonical_scope_name
+
+# Validation constants - easy to modify limits and patterns
+MIN_NAME_LENGTH = 2
+MAX_NAME_LENGTH = 64
+
+MIN_KEYWORD_LENGTH = 2
+MAX_KEYWORD_LENGTH = 32
+MAX_CONTEXT_KEYWORDS = 20
+MAX_QUERIES_PER_SEARCH = 15
+MAX_KEYWORDS_PER_QUERY = 10
+
 # Regular expressions for validation
 NAMESPACE_PATTERN = re.compile(r"^[a-z0-9\-]+$")
 SCOPE_NAME_PATTERN = re.compile(r"^[a-z0-9\-]+$")
+KEYWORD_PATTERN = re.compile(rf"^[a-z0-9]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}$")
+CONTEXT_PATTERN = re.compile(
+    rf"^[a-z0-9]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}"
+    rf"( [a-z0-9]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}){{{0},{MAX_CONTEXT_KEYWORDS-1}}}$"
+)
+QUERY_PATTERN = re.compile(
+    rf"^[a-z0-9]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}"
+    rf"( [a-z0-9]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}){{{0},{MAX_KEYWORDS_PER_QUERY-1}}}$"
+)
 
 # Valid enum values
 VALID_TASK_SIZES = {"XS", "S", "M", "L", "XL"}
@@ -28,8 +49,8 @@ def validate_namespace_name(namespace_name: str | None) -> None:
     if not namespace_name.strip():
         raise ValueError("Namespace name cannot be just whitespace")
 
-    if len(namespace_name) < 2 or len(namespace_name) > 64:
-        raise ValueError("Namespace name must be 2-64 characters")
+    if len(namespace_name) < MIN_NAME_LENGTH or len(namespace_name) > MAX_NAME_LENGTH:
+        raise ValueError(f"Namespace name must be {MIN_NAME_LENGTH}-{MAX_NAME_LENGTH} characters")
 
     if not NAMESPACE_PATTERN.match(namespace_name):
         raise ValueError("Namespace name must contain only lowercase letters, numbers, and hyphens")
@@ -48,8 +69,8 @@ def validate_scope_name(scope_name: str | None) -> None:
     if not scope_name.strip():
         raise ValueError("Scope name cannot be just whitespace")
 
-    if len(scope_name) < 2 or len(scope_name) > 64:
-        raise ValueError("Scope name must be 2-64 characters")
+    if len(scope_name) < MIN_NAME_LENGTH or len(scope_name) > MAX_NAME_LENGTH:
+        raise ValueError(f"Scope name must be {MIN_NAME_LENGTH}-{MAX_NAME_LENGTH} characters")
 
     if not SCOPE_NAME_PATTERN.match(scope_name):
         raise ValueError("Scope name must contain only lowercase letters, numbers, and hyphens")
@@ -57,7 +78,8 @@ def validate_scope_name(scope_name: str | None) -> None:
 
 def validate_canonical_scope_name(canonical_scope_name: str | None) -> None:
     """
-    Validates canonical scope name format 'namespace:scope' (5-129 chars total).
+    Validates canonical scope name format 'namespace:scope'.
+    Delegates validation of individual parts to namespace and scope validators.
 
     Raises:
         ValueError: if the format is invalid, or parts don't meet requirements
@@ -68,13 +90,7 @@ def validate_canonical_scope_name(canonical_scope_name: str | None) -> None:
     if not canonical_scope_name.strip():
         raise ValueError("Canonical scope name cannot be just whitespace")
 
-    if len(canonical_scope_name) < 5 or len(canonical_scope_name) > 129:
-        raise ValueError("Canonical scope name must be 5-129 characters")
-
-    if ":" not in canonical_scope_name:
-        raise ValueError("Canonical scope name must be in format 'namespace:scope'")
-
-    namespace_name, scope_name = canonical_scope_name.split(":", 1)
+    namespace_name, scope_name = parse_canonical_scope_name(canonical_scope_name.strip())
 
     validate_namespace_name(namespace_name)
     validate_scope_name(scope_name)
@@ -93,8 +109,8 @@ def validate_description(description: str | None) -> None:
     if not description.strip():
         raise ValueError("Description cannot be just whitespace")
 
-    if len(description) < 2 or len(description) > 64:
-        raise ValueError("Description must be 2-64 characters")
+    if len(description) < MIN_NAME_LENGTH or len(description) > MAX_NAME_LENGTH:
+        raise ValueError(f"Description must be {MIN_NAME_LENGTH}-{MAX_NAME_LENGTH} characters")
 
 
 def validate_content(content: str | None) -> None:
@@ -113,10 +129,11 @@ def validate_content(content: str | None) -> None:
 
 def validate_context(context: str | None) -> None:
     """
-    Validates knowledge context is 2-64 chars and not just whitespace.
+    Validates the knowledge context format: 1-20 space-separated keywords.
+    Each keyword must be 2-32 characters, lowercase letters, and digits only.
 
     Raises:
-        ValueError: if context is empty, only whitespace, or wrong length
+        ValueError: if context is empty, malformed, or has invalid keyword count/format
     """
     if context is None or context == "":
         raise ValueError("Knowledge context cannot be empty")
@@ -124,8 +141,39 @@ def validate_context(context: str | None) -> None:
     if not context.strip():
         raise ValueError("Knowledge context cannot be just whitespace")
     
-    if len(context) < 2 or len(context) > 64:
-        raise ValueError("Knowledge context must be 2-64 characters")
+    if not CONTEXT_PATTERN.match(context.strip()):
+        raise ValueError(
+            f"Knowledge context must be 1-{MAX_CONTEXT_KEYWORDS} space-separated keywords, "
+            f"each {MIN_KEYWORD_LENGTH}-{MAX_KEYWORD_LENGTH} chars (lowercase letters/digits only)"
+        )
+
+
+def validate_query_terms(queries: list[str] | None) -> None:
+    """
+    Validates search query terms: 1-15 queries, each with 1-10 space-separated keywords.
+    Each keyword must be 2-32 characters, lowercase letters, and digits only.
+
+    Raises:
+        ValueError: if the query list is empty, too long, or contains malformed queries
+    """
+    if queries is None or len(queries) == 0:
+        raise ValueError("Query terms cannot be empty")
+    
+    if len(queries) > MAX_QUERIES_PER_SEARCH:
+        raise ValueError(f"Maximum {MAX_QUERIES_PER_SEARCH} search queries allowed")
+    
+    for i, query in enumerate(queries):
+        if query is None or query == "":
+            raise ValueError(f"Query {i+1} cannot be empty")
+        
+        if not query.strip():
+            raise ValueError(f"Query {i+1} cannot be just whitespace")
+        
+        if not QUERY_PATTERN.match(query.strip()):
+            raise ValueError(
+                f"Query {i+1} must be 1-{MAX_KEYWORDS_PER_QUERY} space-separated keywords, "
+                f"each {MIN_KEYWORD_LENGTH}-{MAX_KEYWORD_LENGTH} chars (lowercase letters/digits only)"
+            )
 
 
 def validate_task_size(task_size: str | None) -> None:

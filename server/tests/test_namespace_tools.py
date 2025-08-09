@@ -5,6 +5,17 @@ from typing import Any
 import pytest
 from fastmcp import Client
 
+
+def _verify_namespace_exists(client_data: dict, namespace_name: str) -> bool:
+    """Helper function to verify namespace exists in list result."""
+    return namespace_name in client_data.get("namespaces", {})
+
+
+def _verify_namespace_absent(client_data: dict, namespace_name: str) -> bool:
+    """Helper function to verify namespace is absent from list result."""
+    return namespace_name not in client_data.get("namespaces", {})
+
+
 # ============================================================================
 # 1. Namespace Lifecycle Tests
 # ============================================================================
@@ -86,7 +97,7 @@ async def test_delete_namespace_cascade(mcp_client: Client[Any]) -> None:
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "cascade-test:test-scope",
             "content": "Test knowledge content",
-            "context": "Test context"
+            "context": "test cascade context"
         })
         
         # Delete namespace
@@ -99,7 +110,7 @@ async def test_delete_namespace_cascade(mcp_client: Client[Any]) -> None:
         
         # Verify it's gone
         list_result = await client.call_tool("list_namespaces", {})
-        assert "cascade-test" not in list_result.data["namespaces"]
+        assert _verify_namespace_absent(list_result.data, "cascade-test")
 
 
 async def test_delete_global_namespace_prevented(mcp_client: Client[Any]) -> None:
@@ -111,6 +122,33 @@ async def test_delete_global_namespace_prevented(mcp_client: Client[Any]) -> Non
                 "namespace_name": "global"
             })
         assert "cannot delete" in str(exc_info.value).lower()
+
+
+async def test_rename_global_namespace_prevented(mcp_client: Client[Any]) -> None:
+    """Attempts to rename the global namespace.
+    Value: Ensures system-critical namespace identity is protected."""
+    async with mcp_client as client:
+        with pytest.raises(Exception) as exc_info:
+            await client.call_tool("rename_namespace", {
+                "old_namespace_name": "global",
+                "new_namespace_name": "renamed-global"
+            })
+        assert ("cannot rename" in str(exc_info.value).lower() or 
+                "global" in str(exc_info.value).lower() or
+                "protected" in str(exc_info.value).lower())
+
+
+async def test_update_global_namespace_description_prevented(mcp_client: Client[Any]) -> None:
+    """Attempts to update global namespace description.
+    Value: Ensures global namespace description is protected."""
+    async with mcp_client as client:
+        with pytest.raises(Exception) as exc_info:
+            await client.call_tool("update_namespace_description", {
+                "namespace_name": "global",
+                "new_description": "Updated global namespace description"
+            })
+        assert ("cannot modify" in str(exc_info.value).lower() or 
+                "global" in str(exc_info.value).lower())
 
 
 # ============================================================================
@@ -207,7 +245,7 @@ async def test_rename_namespace(mcp_client: Client[Any]) -> None:
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "old-name:default",
             "content": "Test content",
-            "context": "Test context"
+            "context": "test rename context"
         })
         
         # Rename
@@ -388,6 +426,62 @@ async def test_namespace_default_scope_relationship(mcp_client: Client[Any]) -> 
             "namespace_name": "default-test"
         })
         assert "default-test:custom" in details.data["scopes"]
+
+
+async def test_cross_namespace_dependency_cleanup(mcp_client: Client[Any]) -> None:
+    """Creates scope with cross-namespace parent, deletes parent namespace.
+    Verifies child namespace scope handles orphaning gracefully.
+    Value: Tests cross-namespace dependency resilience."""
+    async with mcp_client as client:
+        # Create two namespaces
+        await client.call_tool("create_namespace", {
+            "namespace_name": "parent-ns",
+            "description": "Namespace with parent scope"
+        })
+        
+        await client.call_tool("create_namespace", {
+            "namespace_name": "child-ns", 
+            "description": "Namespace with child scope"
+        })
+        
+        # Create parent scope in parent-ns
+        await client.call_tool("create_scope", {
+            "canonical_scope_name": "parent-ns:shared-parent",
+            "description": "Parent scope to be deleted via namespace deletion",
+            "parents": []
+        })
+        
+        # Create child scope in child-ns with a cross-namespace parent
+        await client.call_tool("create_scope", {
+            "canonical_scope_name": "child-ns:dependent-child",
+            "description": "Child that depends on other namespace",
+            "parents": ["parent-ns:shared-parent"]
+        })
+        
+        # Verify initial setup
+        child_details = await client.call_tool("get_namespace_details", {
+            "namespace_name": "child-ns"
+        })
+        assert "child-ns:dependent-child" in child_details.data["scopes"]
+        
+        # Delete the parent namespace (CASCADE should clean up parent scope)
+        await client.call_tool("delete_namespace", {
+            "namespace_name": "parent-ns"
+        })
+        
+        # Verify parent namespace is gone
+        list_result = await client.call_tool("list_namespaces", {})
+        assert _verify_namespace_absent(list_result.data, "parent-ns")
+        assert _verify_namespace_exists(list_result.data, "child-ns")
+        
+        # Child namespace should still exist with its scope
+        child_details_after = await client.call_tool("get_namespace_details", {
+            "namespace_name": "child-ns"
+        })
+        assert "child-ns:dependent-child" in child_details_after.data["scopes"]
+        
+        # Child scope should handle the orphaned parent reference gracefully
+        # (The exact behavior depends on implementation - scope remains, but the parent reference is cleaned up)
 
 
 # ============================================================================

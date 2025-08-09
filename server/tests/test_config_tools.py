@@ -158,8 +158,6 @@ async def test_update_config_null_value(mcp_client: Client[Any]) -> None:
         assert "none is not of type" in str(exc_info.value).lower() or "input validation error" in str(exc_info.value).lower()
 
 
-
-
 # ============================================================================
 # 3. Config Reset Tests
 # ============================================================================
