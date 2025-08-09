@@ -31,7 +31,7 @@ type-check:
 
 # Run tests
 test:
-	pytest tests/ -v
+	uv run pytest tests/ -v
 
 # Run all checks (CI/CD pipeline)
 all: lint type-check test

@@ -18,13 +18,12 @@ VALID_TASK_SIZES = {"XS", "S", "M", "L", "XL"}
 def validate_namespace_name(namespace_name: str | None) -> None:
     """
     Validates the namespace name format (2-64 chars, lowercase/digits/-).
-    Accepts None/empty values.
 
     Raises:
         ValueError: if namespace_name contains invalid characters or a wrong length
     """
     if not namespace_name:
-        return
+        raise ValueError("Namespace name cannot be empty")
 
     if len(namespace_name) < 2 or len(namespace_name) > 64:
         raise ValueError("Namespace name must be 2-64 characters")
@@ -36,13 +35,12 @@ def validate_namespace_name(namespace_name: str | None) -> None:
 def validate_scope_name(scope_name: str | None) -> None:
     """
     Validates the scope name format (2-64 chars, lowercase/digits/-).
-    Accepts None/empty values.
 
     Raises:
         ValueError: if scope_name contains invalid characters or a wrong length
     """
     if not scope_name:
-        return
+        raise ValueError("Scope name cannot be empty")
 
     if len(scope_name) < 2 or len(scope_name) > 64:
         raise ValueError("Scope name must be 2-64 characters")

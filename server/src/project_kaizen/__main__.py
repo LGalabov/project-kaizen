@@ -37,7 +37,7 @@ def main() -> None:
     config = Config.from_args(args)
     
     # Show startup info
-    print(f"Project Kaizen MCP Server", file=sys.stderr)
+    print("Project Kaizen MCP Server", file=sys.stderr)
     print(f"Transport: {config.transport}", file=sys.stderr)
     if config.transport == "http":
         # noinspection HttpUrlsUsage

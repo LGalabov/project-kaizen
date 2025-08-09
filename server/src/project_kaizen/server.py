@@ -208,7 +208,13 @@ async def delete_namespace(
             f"Deleted namespace '{namespace_name}' with {result.get('scopes_count', 0)} scopes "
             f"and {result.get('knowledge_count', 0)} knowledge entries"
         )
-        return result
+        
+        # Return with expected keys for tests
+        return {
+            "namespace": namespace_name,
+            "deleted_scopes": result.get("scopes_count", 0),
+            "deleted_knowledge": result.get("knowledge_count", 0),
+        }
 
     except Exception as e:
         await ctx.error(f"Failed to delete namespace '{namespace_name}': {str(e)}")

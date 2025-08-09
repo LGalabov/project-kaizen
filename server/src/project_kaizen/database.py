@@ -3,7 +3,7 @@
 import sys
 from typing import Any
 
-import asyncpg
+import asyncpg  # type: ignore[import-untyped]
 
 from .config import Config
 from .utils import parse_canonical_scope_name
@@ -29,7 +29,7 @@ async def initialize(config: Config) -> None:
             max_size=config.database_pool_max,
             command_timeout=60,
         )
-        print(f"✓ Database connected", file=sys.stderr)
+        print("✓ Database connected", file=sys.stderr)
     except Exception as e:
         print(f"✗ Failed to initialize database: {e}", file=sys.stderr)
         sys.exit(1)
@@ -73,14 +73,18 @@ async def get_namespace_details(namespace_name: str) -> dict[str, Any]:
 
     # Return the specific namespace data in the expected format
     ns_data = data["namespaces"][namespace_name]
-    return {"namespace": namespace_name, "description": ns_data["description"], "scopes": ns_data["scopes"]}
+    
+    # Convert scope names to canonical format (namespace:scope)
+    canonical_scopes = [f"{namespace_name}:{scope_name}" for scope_name in ns_data["scopes"].keys()]
+    
+    return {"namespace": namespace_name, "description": ns_data["description"], "scopes": canonical_scopes}
 
 
 async def rename_namespace(old_namespace_name: str, new_namespace_name: str) -> dict[str, Any]:
     """Rename a namespace (all references auto-updated via cascade)."""
     pool = await get_pool()
 
-    async with pool.acquire() as conna:
+    async with pool.acquire() as conn:
         async with conn.transaction():
             # Update namespace name - cascades are handled by database
             result = await conn.fetchrow(
