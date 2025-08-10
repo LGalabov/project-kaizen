@@ -6,7 +6,6 @@ import pytest
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
-
 # ============================================================================
 # 1. Config Query Tests
 # ============================================================================
@@ -53,8 +52,8 @@ async def test_list_config_structure(mcp_client: Client[Any]) -> None:
             assert "." in key or key in ["version", "environment"]
             
             # Verify all required fields
-            assert isinstance(config["value"], (str, int, float, bool, type(None)))
-            assert isinstance(config["default"], (str, int, float, bool, type(None)))
+            assert isinstance(config["value"], str | int | float | bool | type(None))
+            assert isinstance(config["default"], str | int | float | bool | type(None))
             assert config["type"] in ["string", "integer", "float", "boolean", "regconfig"]
             assert isinstance(config["description"], str)
             assert len(config["description"]) > 0
@@ -155,7 +154,8 @@ async def test_update_config_null_value(mcp_client: Client[Any]) -> None:
                 "value": None
             })
         # FastMCP validates that None is not a valid string type
-        assert "none is not of type" in str(exc_info.value).lower() or "input validation error" in str(exc_info.value).lower()
+        assert ("none is not of type" in str(exc_info.value).lower() or 
+                "input validation error" in str(exc_info.value).lower())
 
 
 # ============================================================================
@@ -289,7 +289,7 @@ async def test_config_recovery_from_invalid_update(mcp_client: Client[Any]) -> N
         initial_value = list_result.data["configs"]["search.max_results"]["value"]
         
         # Attempt invalid update
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             await client.call_tool("update_config", {
                 "key": "search.max_results",
                 "value": "invalid-integer"

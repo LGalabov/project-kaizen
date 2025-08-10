@@ -1,0 +1,21 @@
+# Project Kaizen MCP Server
+
+- **Package Manager**: Uses `uv` for dependency management and virtual environment
+- **Static Analysis Tools**: 
+  - `mypy` for type checking
+  - `ruff` for linting and formatting
+- **Running Static Analysis**:
+  - `python -m mypy src/` for type checking source code
+  - `python -m mypy tests/` for type checking tests
+  - `python -m ruff check src/ --fix` for linting source with auto-fix
+  - `python -m ruff check tests/ --fix` for linting tests with auto-fix
+- **Testing**: 
+  - `python -m pytest tests/` to run all tests
+  - `python -m pytest tests/ -v` for verbose output
+- **Validation Patterns**:
+  - Context keywords: lowercase letters, digits, and hyphens only (a-z, 0-9, -)
+  - Search queries: same character restrictions as context keywords
+  - Namespace/scope names: lowercase letters, digits, and hyphens only
+- **Database**: PostgreSQL with functions in `project_kaizen` schema
+- **MCP Protocol**: Server implements MCP (Model Context Protocol) for knowledge management
+- **Configuration**: Runtime config system with CLI args > env vars > defaults hierarchy

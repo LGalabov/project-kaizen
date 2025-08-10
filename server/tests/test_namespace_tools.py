@@ -6,12 +6,12 @@ import pytest
 from fastmcp import Client
 
 
-def _verify_namespace_exists(client_data: dict, namespace_name: str) -> bool:
+def _verify_namespace_exists(client_data: dict[str, Any], namespace_name: str) -> bool:
     """Helper function to verify namespace exists in list result."""
     return namespace_name in client_data.get("namespaces", {})
 
 
-def _verify_namespace_absent(client_data: dict, namespace_name: str) -> bool:
+def _verify_namespace_absent(client_data: dict[str, Any], namespace_name: str) -> bool:
     """Helper function to verify namespace is absent from list result."""
     return namespace_name not in client_data.get("namespaces", {})
 

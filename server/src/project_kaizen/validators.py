@@ -22,14 +22,14 @@ MAX_KEYWORDS_PER_QUERY = 10
 # Regular expressions for validation
 NAMESPACE_PATTERN = re.compile(r"^[a-z0-9\-]+$")
 SCOPE_NAME_PATTERN = re.compile(r"^[a-z0-9\-]+$")
-KEYWORD_PATTERN = re.compile(rf"^[a-z0-9]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}$")
+KEYWORD_PATTERN = re.compile(rf"^[a-z0-9\-]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}$")
 CONTEXT_PATTERN = re.compile(
-    rf"^[a-z0-9]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}"
-    rf"( [a-z0-9]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}){{{0},{MAX_CONTEXT_KEYWORDS-1}}}$"
+    rf"^[a-z0-9\-]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}"
+    rf"( [a-z0-9\-]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}){{{0},{MAX_CONTEXT_KEYWORDS-1}}}$"
 )
 QUERY_PATTERN = re.compile(
-    rf"^[a-z0-9]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}"
-    rf"( [a-z0-9]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}){{{0},{MAX_KEYWORDS_PER_QUERY-1}}}$"
+    rf"^[a-z0-9\-]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}"
+    rf"( [a-z0-9\-]{{{MIN_KEYWORD_LENGTH},{MAX_KEYWORD_LENGTH}}}){{{0},{MAX_KEYWORDS_PER_QUERY-1}}}$"
 )
 
 # Valid enum values
@@ -130,7 +130,7 @@ def validate_content(content: str | None) -> None:
 def validate_context(context: str | None) -> None:
     """
     Validates the knowledge context format: 1-20 space-separated keywords.
-    Each keyword must be 2-32 characters, lowercase letters, and digits only.
+    Each keyword must be 2-32 characters, lowercase letters, digits, and hyphens only.
 
     Raises:
         ValueError: if context is empty, malformed, or has invalid keyword count/format
@@ -144,14 +144,14 @@ def validate_context(context: str | None) -> None:
     if not CONTEXT_PATTERN.match(context.strip()):
         raise ValueError(
             f"Knowledge context must be 1-{MAX_CONTEXT_KEYWORDS} space-separated keywords, "
-            f"each {MIN_KEYWORD_LENGTH}-{MAX_KEYWORD_LENGTH} chars (lowercase letters/digits only)"
+            f"each {MIN_KEYWORD_LENGTH}-{MAX_KEYWORD_LENGTH} chars (lowercase letters/digits/hyphens only)"
         )
 
 
 def validate_query_terms(queries: list[str] | None) -> None:
     """
     Validates search query terms: 1-15 queries, each with 1-10 space-separated keywords.
-    Each keyword must be 2-32 characters, lowercase letters, and digits only.
+    Each keyword must be 2-32 characters, lowercase letters, digits, and hyphens only.
 
     Raises:
         ValueError: if the query list is empty, too long, or contains malformed queries
@@ -172,7 +172,7 @@ def validate_query_terms(queries: list[str] | None) -> None:
         if not QUERY_PATTERN.match(query.strip()):
             raise ValueError(
                 f"Query {i+1} must be 1-{MAX_KEYWORDS_PER_QUERY} space-separated keywords, "
-                f"each {MIN_KEYWORD_LENGTH}-{MAX_KEYWORD_LENGTH} chars (lowercase letters/digits only)"
+                f"each {MIN_KEYWORD_LENGTH}-{MAX_KEYWORD_LENGTH} chars (lowercase letters/digits/hyphens only)"
             )
 
 

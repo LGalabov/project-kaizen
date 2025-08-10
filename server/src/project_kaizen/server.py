@@ -352,79 +352,91 @@ async def update_scope_description(
 
 # noinspection PyIncorrectDocstring
 @mcp.tool
-async def add_scope_parent(
+async def add_scope_parents(
     ctx: Context,
     canonical_scope_name: str = Field(
         description="Full scope identifier 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
     ),
-    parent_canonical_scope_name: str = Field(
-        description="Parent scope to add 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    parent_canonical_scope_names: list[str] = Field(  # noqa: B008
+        description=(
+            "Parent scopes to add as list of 'namespace:scope' "
+            "(each part 2-64 chars, lowercase letters/numbers/-)"
+        ),
+        min_length=1,
     ),
 ) -> dict[str, Any]:
-    """Add a parent relationship to an existing scope.
+    """Add parent relationships to an existing scope.
 
-    Adds a new parent scope for inheritance. The scope will inherit knowledge
-    from this parent in addition to its existing parents.
+    Adds one or more parent scopes for inheritance. The scope will inherit knowledge
+    from these parents in addition to its existing parents.
 
     Args:
         canonical_scope_name: Full scope identifier to modify
-        parent_canonical_scope_name: Full parent scope identifier to add
+        parent_canonical_scope_names: List of full parent scope identifiers to add
 
     Returns:
         Dictionary with updated scope and all parent relationships
     """
-    await ctx.info(f"Adding parent '{parent_canonical_scope_name}' to scope '{canonical_scope_name}'")
+    parents_str = "', '".join(parent_canonical_scope_names)
+    await ctx.info(f"Adding parents ['{parents_str}'] to scope '{canonical_scope_name}'")
 
     validate_canonical_scope_name(canonical_scope_name)
-    validate_canonical_scope_name(parent_canonical_scope_name)
+    for parent in parent_canonical_scope_names:
+        validate_canonical_scope_name(parent)
 
     try:
-        result = await database.add_scope_parents(canonical_scope_name, [parent_canonical_scope_name])
+        result = await database.add_scope_parents(canonical_scope_name, parent_canonical_scope_names)
 
-        await ctx.info(f"Added parent '{parent_canonical_scope_name}' to scope '{canonical_scope_name}'")
+        await ctx.info(f"Added {len(parent_canonical_scope_names)} parent(s) to scope '{canonical_scope_name}'")
         return result
 
     except Exception as e:
-        await ctx.error(f"Failed to add parent to scope '{canonical_scope_name}': {str(e)}")
+        await ctx.error(f"Failed to add parents to scope '{canonical_scope_name}': {str(e)}")
         raise
 
 
 # noinspection PyIncorrectDocstring
 @mcp.tool
-async def remove_scope_parent(
+async def remove_scope_parents(
     ctx: Context,
     canonical_scope_name: str = Field(
         description="Full scope identifier 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
     ),
-    parent_canonical_scope_name: str = Field(
-        description="Parent scope to remove 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"
+    parent_canonical_scope_names: list[str] = Field(  # noqa: B008
+        description=(
+            "Parent scopes to remove as list of 'namespace:scope' "
+            "(each part 2-64 chars, lowercase letters/numbers/-)"
+        ),
+        min_length=1,
     ),
 ) -> dict[str, Any]:
-    """Remove a parent relationship from a scope.
+    """Remove parent relationships from a scope.
 
-    Removes an existing parent scope relationship. The scope will no longer
-    inherit knowledge from this parent.
+    Removes one or more existing parent scope relationships. The scope will no longer
+    inherit knowledge from these parents.
 
     Args:
         canonical_scope_name: Full scope identifier to modify
-        parent_canonical_scope_name: Full parent scope identifier to remove
+        parent_canonical_scope_names: List of full parent scope identifiers to remove
 
     Returns:
         Dictionary with updated scope and remaining parent relationships
     """
-    await ctx.info(f"Removing parent '{parent_canonical_scope_name}' from scope '{canonical_scope_name}'")
+    parents_str = "', '".join(parent_canonical_scope_names)
+    await ctx.info(f"Removing parents ['{parents_str}'] from scope '{canonical_scope_name}'")
 
     validate_canonical_scope_name(canonical_scope_name)
-    validate_canonical_scope_name(parent_canonical_scope_name)
+    for parent in parent_canonical_scope_names:
+        validate_canonical_scope_name(parent)
 
     try:
-        result = await database.remove_scope_parents(canonical_scope_name, [parent_canonical_scope_name])
+        result = await database.remove_scope_parents(canonical_scope_name, parent_canonical_scope_names)
 
-        await ctx.info(f"Removed parent '{parent_canonical_scope_name}' from scope '{canonical_scope_name}'")
+        await ctx.info(f"Removed {len(parent_canonical_scope_names)} parent(s) from scope '{canonical_scope_name}'")
         return result
 
     except Exception as e:
-        await ctx.error(f"Failed to remove parent from scope '{canonical_scope_name}': {str(e)}")
+        await ctx.error(f"Failed to remove parents from scope '{canonical_scope_name}': {str(e)}")
         raise
 
 
@@ -481,7 +493,7 @@ async def write_knowledge(
     content: str = Field(description="Knowledge content (non-empty, free text)"),
     context: str = Field(
         description="Summary/context keywords (1-20 space-separated keywords, "
-        + "2-32 chars each, lowercase letters/digits only)"
+        + "2-32 chars each, lowercase letters/digits/hyphens only)"
     ),
     task_size: str | None = Field(default=None, description="Task complexity (XS/S/M/L/XL), null if not classified"),
 ) -> dict[str, Any]:
@@ -558,7 +570,7 @@ async def update_knowledge_context(
     knowledge_id: int = Field(description="Knowledge entry ID to update"),
     new_context: str = Field(
         description="New context/summary keywords (1-20 space-separated keywords, "
-        + "2-32 chars each, lowercase letters/digits only)"
+        + "2-32 chars each, lowercase letters/digits/hyphens only)"
     ),
 ) -> dict[str, Any]:
     """Update the context/summary of a knowledge entry.
@@ -832,7 +844,7 @@ async def search_knowledge_base(
     ctx: Context,
     queries: list[str] = Field(  # noqa: B008
         description="Search terms like ['database postgresql', 'authentication oauth'] "
-        + "(1-15 queries, each 1-10 keywords, 2-32 chars each, lowercase letters/digits only)"
+        + "(1-15 queries, each 1-10 keywords, 2-32 chars each, lowercase letters/digits/hyphens only)"
     ),
     canonical_scope_name: str = Field(
         description="Search scope 'namespace:scope' (each part 2-64 chars, lowercase letters/numbers/-)"

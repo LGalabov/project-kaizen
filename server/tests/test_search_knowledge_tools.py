@@ -13,7 +13,7 @@ def _find_content_in_search_results(result_data: dict[str, dict[str, str]] | Non
         return False
     
     for scope_results in result_data.values():
-        for knowledge_id, content in scope_results.items():
+        for _knowledge_id, content in scope_results.items():
             if content_substring in content:
                 return True
     return False
@@ -64,13 +64,15 @@ async def test_search_basic_multiple_queries(mcp_client: Client[Any]) -> None:
         
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "multi-search:default",
-            "content": "Database connection pooling configuration with postgresql read replicas and connection limits for optimal performance",
+            "content": ("Database connection pooling configuration with postgresql read replicas "
+                       "and connection limits for optimal performance"),
             "context": "database postgresql connection pooling configuration read replicas performance optimization"
         })
         
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "multi-search:default",
-            "content": "Authentication system using oauth social login with jwt tokens, refresh tokens, and twofactor verification",
+            "content": ("Authentication system using oauth social login with jwt tokens, "
+                       "refresh tokens, and twofactor verification"),
             "context": "authentication oauth social login jwt tokens twofactor verification security"
         })
         
@@ -109,7 +111,7 @@ async def test_search_scope_inheritance_chain(mcp_client: Client[Any]) -> None:
     Verifies scope inheritance works correctly in search results.
     Value: Hierarchical knowledge discovery."""
     async with mcp_client as client:
-        # Create namespace and scope hierarchy
+        # Create a namespace and scope hierarchy
         await client.call_tool("create_namespace", {
             "namespace_name": "hierarchy-test",
             "description": "Test namespace for hierarchy search"
@@ -319,9 +321,12 @@ async def test_search_without_task_size_includes_all(mcp_client: Client[Any]) ->
         })
         
         # Should find all three knowledge entries
-        assert _find_content_in_search_results(result.data, "Small task knowledge")      # Task size "S" should be included
-        assert _find_content_in_search_results(result.data, "Large task knowledge")     # Task size "L" should be included
-        assert _find_content_in_search_results(result.data, "Unclassified knowledge")   # NULL task size should be included
+        # Task size "S" should be included
+        assert _find_content_in_search_results(result.data, "Small task knowledge")
+        # Task size "L" should be included
+        assert _find_content_in_search_results(result.data, "Large task knowledge")
+        # NULL task size should be included
+        assert _find_content_in_search_results(result.data, "Unclassified knowledge")
 
 
 async def test_search_invalid_task_size_validation(mcp_client: Client[Any]) -> None:
@@ -365,8 +370,8 @@ async def test_search_no_results_empty_response(mcp_client: Client[Any]) -> None
 
 async def test_search_respects_max_results_config(mcp_client: Client[Any]) -> None:
     """Verifies search respects the configured maximum results limit.
-    Tests integration with configuration system.
-    Value: Ensures search result limits work correctly."""
+    Tests integration with a configuration system.
+    Value: Ensures the search result limits work correctly."""
     async with mcp_client as client:
         # Create a namespace and add multiple knowledge entries
         await client.call_tool("create_namespace", {
