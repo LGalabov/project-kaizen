@@ -6,17 +6,15 @@ import pytest
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
+from project_kaizen.server import KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS, KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS
 
-def _find_content_in_search_results(result_data: dict[str, dict[str, str]] | None, content_substring: str) -> bool:
+
+def _find_content_in_search_results(result_data: str | None, content_substring: str) -> bool:
     """Helper function to search for content substring in search results."""
     if not result_data:
         return False
     
-    for scope_results in result_data.values():
-        for _knowledge_id, content in scope_results.items():
-            if content_substring in content:
-                return True
-    return False
+    return content_substring in result_data
 
 
 # ============================================================================
@@ -46,8 +44,8 @@ async def test_search_basic_single_query(mcp_client: Client[Any]) -> None:
             "canonical_scope_name": "search-test:default"
         })
         
-        # Should find the knowledge
-        assert len(result.data) > 0
+        # Should find the knowledge and have the structured prompt
+        assert result.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
         assert _find_content_in_search_results(result.data, "REST API endpoints")
 
 
@@ -82,8 +80,8 @@ async def test_search_basic_multiple_queries(mcp_client: Client[Any]) -> None:
             "canonical_scope_name": "multi-search:default"
         })
         
-        # Should find both pieces of knowledge
-        assert len(result.data) > 0
+        # Should find both pieces of knowledge and have the structured prompt
+        assert result.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
         assert _find_content_in_search_results(result.data, "Database connection pooling")
         assert _find_content_in_search_results(result.data, "Authentication system using oauth")
 
@@ -142,8 +140,8 @@ async def test_search_scope_inheritance_chain(mcp_client: Client[Any]) -> None:
             "canonical_scope_name": "hierarchy-test:child"
         })
         
-        # Should find the knowledge from parent scope
-        assert len(result.data) > 0
+        # Should find the knowledge from the parent scope and have the structured prompt
+        assert result.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
         assert _find_content_in_search_results(result.data, "Parent scope contains important guidelines")
 
 
@@ -189,8 +187,8 @@ async def test_search_multiple_inheritance_levels(mcp_client: Client[Any]) -> No
             "canonical_scope_name": "deep-hierarchy:child"
         })
         
-        # Should find the knowledge from grandparent scope
-        assert len(result.data) > 0
+        # Should find the knowledge from grandparent scope and have the structured prompt
+        assert result.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
         assert _find_content_in_search_results(result.data, "Ancient wisdom from the grandparent")
 
 
@@ -359,8 +357,8 @@ async def test_search_no_results_empty_response(mcp_client: Client[Any]) -> None
             "canonical_scope_name": "global:default"
         })
         
-        # Should return None for no results (FastMCP behavior)
-        assert result.data is None
+        # Should return no results prompt
+        assert result.data == KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS
         assert not result.is_error  # Should not be an error condition
 
 
@@ -393,8 +391,15 @@ async def test_search_respects_max_results_config(mcp_client: Client[Any]) -> No
             "canonical_scope_name": "limit-test:default"
         })
         
-        total_without_limit = sum(len(entries) for entries in result_without_limit.data.values())
-        assert total_without_limit > 2, f"Expected >2 results to test limiting, got {total_without_limit}"
+        # Check we have results without limit and structured prompt
+        assert result_without_limit.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
+        lines_without_limit = result_without_limit.data.split('\n')
+        # Only count actual knowledge entries (lines with pattern "ID: content")
+        import re
+        knowledge_lines_without_limit = [line for line in lines_without_limit if re.match(r'^\d+:', line.strip())]
+        assert len(knowledge_lines_without_limit) > 2, (
+            f"Expected >2 results to test limiting, got {len(knowledge_lines_without_limit)}"
+        )
         
         # Set max results to 2
         await client.call_tool("update_config", {
@@ -408,8 +413,12 @@ async def test_search_respects_max_results_config(mcp_client: Client[Any]) -> No
             "canonical_scope_name": "limit-test:default"
         })
         
-        total_results = sum(len(entries) for entries in result.data.values())
-        assert total_results <= 2
+        # Check we have results with limit and structured prompt
+        assert result.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
+        lines_with_limit = result.data.split('\n')
+        # Only count actual knowledge entries (lines with pattern "ID: content")
+        knowledge_lines_with_limit = [line for line in lines_with_limit if re.match(r'^\d+:', line.strip())]
+        assert len(knowledge_lines_with_limit) <= 2
         
         # Reset config for other tests
         await client.call_tool("reset_config", {

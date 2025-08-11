@@ -7,7 +7,7 @@ used in the MCP server.
 
 import re
 
-from .utils import parse_canonical_scope_name
+from project_kaizen.utils import parse_canonical_scope_name
 
 # Validation constants - easy to modify limits and patterns
 MIN_NAME_LENGTH = 2

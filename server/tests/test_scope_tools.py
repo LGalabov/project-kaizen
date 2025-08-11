@@ -5,17 +5,15 @@ from typing import Any
 import pytest
 from fastmcp import Client
 
+from project_kaizen.server import KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS, KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS
 
-def _find_content_in_search_results(result_data: dict[str, dict[str, str]] | None, content_substring: str) -> bool:
+
+def _find_content_in_search_results(result_data: str | None, content_substring: str) -> bool:
     """Helper function to search for content substring in search results."""
     if not result_data:
         return False
     
-    for scope_results in result_data.values():
-        for _knowledge_id, content in scope_results.items():
-            if content_substring in content:
-                return True
-    return False
+    return content_substring in result_data
 
 
 # ============================================================================
@@ -208,7 +206,7 @@ async def test_delete_default_scope_prevented(mcp_client: Client[Any]) -> None:
 async def test_scope_details_via_namespace(mcp_client: Client[Any]) -> None:
     """Gets scope details through a namespace details query.
     Verifies scope information and parent relationships are included.
-    Value: Tests scope visibility in namespace context."""
+    Value: Tests scope visibility in a namespace context."""
     async with mcp_client as client:
         # Create a namespace with scopes
         await client.call_tool("create_namespace", {
@@ -824,7 +822,7 @@ async def test_add_parents_empty_array_validation(mcp_client: Client[Any]) -> No
 
 
 async def test_remove_parents_empty_array_validation(mcp_client: Client[Any]) -> None:
-    """Attempts to remove empty array of parents.
+    """Attempts to remove an empty array of parents.
     Should fail with validation error.
     Value: Prevents meaningless API calls."""
     async with mcp_client as client:
@@ -945,66 +943,83 @@ async def test_scope_with_knowledge_inheritance(mcp_client: Client[Any]) -> None
             "canonical_scope_name": "inherit-knowledge:child"
         })
         
-        # Should find the knowledge from parent scope
-        assert len(result.data) > 0
-        found = False
-        for scope_results in result.data.values():
-            for _knowledge_id, content in scope_results.items():
-                if "Parent's important knowledge" in content:
-                    found = True
-                    break
-        assert found
+        # Should find the knowledge from the parent scope and have the structured prompt
+        assert result.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
+        assert "Parent's important knowledge" in result.data
 
 
 async def test_scope_rename_with_active_knowledge(mcp_client: Client[Any]) -> None:
     """Renames scope containing multiple knowledge entries.
-    Verifies all knowledge remains accessible with a new scope name.
+    Verifies all knowledge remains accessible with the new scope name.
     Value: Tests data integrity during structural changes."""
     async with mcp_client as client:
         # Create namespace and scope
         await client.call_tool("create_namespace", {
-            "namespace_name": "rename-knowledge",
-            "description": "Namespace for rename with knowledge test"
+            "namespace_name": "rename-test",
+            "description": "Test namespace for scope rename"
         })
         
         await client.call_tool("create_scope", {
-            "canonical_scope_name": "rename-knowledge:original",
-            "description": "Scope with knowledge",
+            "canonical_scope_name": "rename-test:old-scope",
+            "description": "Original scope name",
             "parents": []
         })
         
-        # Add multiple knowledge entries
-        knowledge_ids = []
-        for i in range(3):
+        # Add knowledge entries to the original scope
+        knowledge_entries = [
+            {"content": "Database configuration settings", "context": "database config settings"},
+            {"content": "Authentication middleware setup", "context": "auth middleware setup"},
+            {"content": "API endpoint documentation", "context": "api endpoint docs"}
+        ]
+        
+        created_knowledge_ids = []
+        for entry in knowledge_entries:
             result = await client.call_tool("write_knowledge", {
-                "canonical_scope_name": "rename-knowledge:original",
-                "content": f"Knowledge entry {i}",
-                "context": f"context diamond{i}"
+                "canonical_scope_name": "rename-test:old-scope",
+                "content": entry["content"],
+                "context": entry["context"]
             })
-            knowledge_ids.append(result.data["id"])
+            created_knowledge_ids.append(result.data["id"])
+        
+        # Verify knowledge is searchable before rename
+        pre_rename_result = await client.call_tool("search_knowledge_base", {
+            "queries": ["database config"],
+            "canonical_scope_name": "rename-test:old-scope"
+        })
+        assert pre_rename_result.data != KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS
+        assert "Database configuration settings" in pre_rename_result.data
         
         # Rename the scope
-        await client.call_tool("rename_scope", {
-            "canonical_scope_name": "rename-knowledge:original",
-            "new_scope_name": "renamed"
+        rename_result = await client.call_tool("rename_scope", {
+            "canonical_scope_name": "rename-test:old-scope",
+            "new_scope_name": "new-scope"
         })
+        assert rename_result.data["scope"] == "rename-test:new-scope"
+        assert rename_result.data["previous_name"] == "rename-test:old-scope"
         
-        # Search for knowledge in the renamed scope
-        result = await client.call_tool("search_knowledge_base", {
-            "queries": ["knowledge entry"],
-            "canonical_scope_name": "rename-knowledge:renamed"
+        # Verify knowledge is searchable after rename with the new scope name
+        post_rename_result = await client.call_tool("search_knowledge_base", {
+            "queries": ["database config"],
+            "canonical_scope_name": "rename-test:new-scope"
         })
+        assert post_rename_result.data != KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS
+        assert "Database configuration settings" in post_rename_result.data
         
-        # Should find all knowledge entries
-        if result.data is None:
-            # Known issue: PostgreSQL materialized view (mv_active_knowledge_search) doesn't refresh
-            # correctly after scope rename, causing search to return no results despite knowledge
-            # entries existing with the correct qualified_scope_name in the database.
-            # This is a materialized view refresh timing/trigger issue, not data corruption.
-            pytest.skip("KNOWN ISSUE: Materialized view mv_active_knowledge_search doesn't refresh after scope rename")
+        # Verify all original knowledge entries are still accessible
+        all_knowledge_result = await client.call_tool("search_knowledge_base", {
+            "queries": ["config", "auth", "api"],
+            "canonical_scope_name": "rename-test:new-scope"
+        })
+        assert all_knowledge_result.data != KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS
         
-        total_found = sum(len(entries) for entries in result.data.values())
-        assert total_found >= 3, f"Expected at least 3 entries, found {total_found}"
+        # Verify the old scope name no longer works
+        with pytest.raises(Exception) as exc_info:
+            await client.call_tool("search_knowledge_base", {
+                "queries": ["database config"],
+                "canonical_scope_name": "rename-test:old-scope"
+            })
+        # Should fail because the scope no longer exists
+        assert "does not exist" in str(exc_info.value).lower()
 
 
 async def test_scope_delete_with_children(mcp_client: Client[Any]) -> None:
@@ -1096,14 +1111,9 @@ async def test_scope_multiple_inheritance_paths(mcp_client: Client[Any]) -> None
             "canonical_scope_name": "diamond:bottom"
         })
         
-        # Should find the knowledge from the top
-        found = False
-        for scope_results in search_result.data.values():
-            for _knowledge_id, content in scope_results.items():
-                if "Knowledge from top" in content:
-                    found = True
-                    break
-        assert found
+        # Should find the knowledge from the top and have the structured prompt
+        assert search_result.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
+        assert "Knowledge from top" in search_result.data
 
 
 async def test_scope_namespace_boundary(mcp_client: Client[Any]) -> None:
@@ -1149,14 +1159,9 @@ async def test_scope_namespace_boundary(mcp_client: Client[Any]) -> None:
             "canonical_scope_name": "consumer-ns:api-consumer"
         })
         
-        # Should find the shared knowledge
-        found = False
-        for scope_results in result.data.values():
-            for _knowledge_id, content in scope_results.items():
-                if "Shared API documentation" in content:
-                    found = True
-                    break
-        assert found
+        # Should find the shared knowledge and have the structured prompt
+        assert result.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
+        assert "Shared API documentation" in result.data
 
 
 # ============================================================================

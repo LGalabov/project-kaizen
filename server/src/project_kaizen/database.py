@@ -5,8 +5,8 @@ from typing import Any
 
 import asyncpg
 
-from .config import Config
-from .utils import parse_canonical_scope_name
+from project_kaizen.config import Config
+from project_kaizen.utils import parse_canonical_scope_name
 
 _pool: asyncpg.Pool | None = None
 
@@ -155,8 +155,8 @@ async def delete_namespace(namespace_name: str) -> dict[str, Any]:
 
             return {
                 "namespace": namespace_name,
-                "scopes_count": stats["scopes_count"] or 0,
-                "knowledge_count": stats["knowledge_count"] or 0,
+                "deleted_scopes": stats["scopes_count"] or 0,
+                "deleted_knowledge": stats["knowledge_count"] or 0,
             }
 
 
@@ -515,7 +515,9 @@ async def resolve_knowledge_conflict(active_knowledge_id: int, suppressed_knowle
 # ============================================================================
 
 
-async def search_knowledge_base(queries: list[str], canonical_scope_name: str, task_size: str | None) -> dict[str, Any]:
+async def search_knowledge_base(
+    queries: list[str], canonical_scope_name: str, task_size: str | None
+) -> list[str]:
     """Search knowledge base using multiple queries within the scope hierarchy."""
     pool = await get_pool()
 
@@ -524,14 +526,8 @@ async def search_knowledge_base(queries: list[str], canonical_scope_name: str, t
             "SELECT * FROM search_knowledge_base($1, $2, $3)", queries, canonical_scope_name, task_size
         )
 
-        result: dict[str, dict[int, str]] = {}
-        for row in rows:
-            scope_key = row["qualified_scope_name"]
-            if scope_key not in result:
-                result[scope_key] = {}
-            result[scope_key][row["knowledge_id"]] = row["content"]
-
-        return result
+        # Format as "ID: content" strings, already sorted by rank DESC
+        return [f"{row['knowledge_id']}: {row['content']}" for row in rows]
 
 
 # ============================================================================

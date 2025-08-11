@@ -133,10 +133,8 @@ CREATE OR REPLACE FUNCTION search_knowledge_base(
     target_scope TEXT,
     filter_task_size task_size_enum DEFAULT NULL
 ) RETURNS TABLE (
-    qualified_scope_name TEXT,
     knowledge_id BIGINT,
-    content TEXT,
-    relevance_rank REAL
+    content TEXT
 ) AS $$
 DECLARE
     ancestors_array BIGINT[];
@@ -187,12 +185,10 @@ BEGIN
         SELECT * FROM ranked_results WHERE rank >= relevance_threshold
     )
     SELECT 
-        fr.qualified_scope_name,
         fr.id as knowledge_id,
-        fr.content,
-        MAX(fr.rank) as relevance_rank
+        fr.content
     FROM filtered_results fr
-    GROUP BY fr.qualified_scope_name, fr.id, fr.content
+    GROUP BY fr.id, fr.content
     ORDER BY MAX(fr.rank) DESC
     LIMIT max_results;
 END;
