@@ -1,20 +1,20 @@
 services:
-  project-kaizen-postgres:
+  kaizen-mcp-postgres:
     image: postgres:17
-    container_name: project-kaizen-db
+    container_name: kaizen-mcp-db
     environment:
-      POSTGRES_DB: kz_knowledge
+      POSTGRES_DB: kz_data
       POSTGRES_USER: kz_user
-      POSTGRES_PASSWORD: kz_password
+      POSTGRES_PASSWORD: kz_pass
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5453:5432"
+      - "5452:5432"
     volumes:
       - kz_data:/var/lib/postgresql/data/pgdata
       - ./01-initial-schema.sql:/docker-entrypoint-initdb.d/01-initial-schema.sql
       - ./sample/sample-data.sql:/docker-entrypoint-initdb.d/02-sample-data.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U kz_user -d kz_knowledge" ]
+      test: [ "CMD-SHELL", "pg_isready -U kz_user -d kz_data" ]
       interval: 10s
       timeout: 5s
       retries: 5

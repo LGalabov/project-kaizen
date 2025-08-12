@@ -6,7 +6,7 @@ import pytest
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
-from project_kaizen.server import KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS, KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS
+from kaizen_mcp.server import KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS, KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS
 
 
 def _find_content_in_search_results(result_data: str | None, content_substring: str) -> bool:

@@ -1,4 +1,4 @@
-# Project Kaizen MCP Server
+# KaizenMCP Server
 
 - **Package Manager**: Uses `uv` for dependency management and virtual environment
 - **Static Analysis Tools**: 
@@ -16,6 +16,6 @@
   - Context keywords: lowercase letters, digits, and hyphens only (a-z, 0-9, -)
   - Search queries: same character restrictions as context keywords
   - Namespace/scope names: lowercase letters, digits, and hyphens only
-- **Database**: PostgreSQL with functions in `project_kaizen` schema
+- **Database**: PostgreSQL with functions in `kaizen_mcp` schema
 - **MCP Protocol**: Server implements MCP (Model Context Protocol) for knowledge management
 - **Configuration**: Runtime config system with CLI args > env vars > defaults hierarchy

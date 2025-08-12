@@ -1,4 +1,4 @@
-# Project Kaizen - Behavior Examples
+# KaizenMCP - Behavior Examples
 
 This document provides concrete examples of how AI should behave with the MCP knowledge system across various scenarios, from basic knowledge storage to complex real-world workflows.
 
@@ -386,7 +386,7 @@ AI: [Resolves conflict by marking 30-second rule as active, suppressing 60-secon
 
 ## Summary
 
-These examples demonstrate how Project Kaizen enables:
+These examples demonstrate how KaizenMCP enables:
 
 1. **Explicit knowledge management** through MCP endpoint calls
 2. **Multi-query context retrieval** for complex task understanding

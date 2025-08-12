@@ -1,4 +1,4 @@
-"""Test configuration for Project Kaizen MCP Server."""
+"""Test configuration for KaizenMCP Server."""
 
 import asyncio
 from collections.abc import AsyncGenerator
@@ -53,7 +53,7 @@ async def mcp_client(postgres_container: PostgresContainer) -> AsyncGenerator[Cl
     
     client = Client(StdioTransport(
         command="python",
-        args=["-m", "project_kaizen"],
+        args=["-m", "kaizen_mcp"],
         env={"DATABASE_URL": db_url},
         cwd=str(Path(__file__).parent.parent),
     ))

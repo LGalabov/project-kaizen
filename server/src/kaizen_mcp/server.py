@@ -1,12 +1,12 @@
-"""Project Kaizen MCP Server."""
+"""KaizenMCP Server."""
 
 from typing import Any
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
 
-from project_kaizen import database
-from project_kaizen.validators import (
+from kaizen_mcp import database
+from kaizen_mcp.validators import (
     validate_canonical_scope_name,
     validate_content,
     validate_context,

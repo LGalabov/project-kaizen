@@ -1,15 +1,15 @@
-"""Entry point for Project Kaizen MCP Server."""
+"""Entry point for KaizenMCP Server."""
 
 import asyncio
 import sys
 from pathlib import Path
 
-# Enable running as a script (python src/project_kaizen/__main__.py) for development.
+# Enable running as a script (python src/kaizen_mcp/__main__.py) for development.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from project_kaizen import database
-from project_kaizen.config import Config, create_parser
-from project_kaizen.server import mcp
+from kaizen_mcp import database
+from kaizen_mcp.config import Config, create_parser
+from kaizen_mcp.server import mcp
 
 
 async def run_server(config: Config) -> None:
@@ -37,7 +37,7 @@ def main() -> None:
     config = Config.from_args(args)
     
     # Show startup info
-    print("Project Kaizen MCP Server", file=sys.stderr)
+    print("KaizenMCP Server", file=sys.stderr)
     print(f"Transport: {config.transport}", file=sys.stderr)
     if config.transport == "http":
         # noinspection HttpUrlsUsage

@@ -1,4 +1,4 @@
-# Project Kaizen - Product Specification
+# KaizenMCP - Product Specification
 
 ## Table of Contents
 - [Executive Summary](#executive-summary)
@@ -12,7 +12,7 @@
 
 ## Executive Summary
 
-Project Kaizen transforms AI assistants from stateless tools into persistent, learning team members that accumulate project knowledge over time. By providing AI with the ability to remember instructions, context, decisions, and lessons learned, we enable continuous improvement in task execution and create true AI collaborators that understand projects as deeply as human team members.
+KaizenMCP transforms AI assistants from stateless tools into persistent, learning team members that accumulate project knowledge over time. By providing AI with the ability to remember instructions, context, decisions, and lessons learned, we enable continuous improvement in task execution and create true AI collaborators that understand projects as deeply as human team members.
 
 ## Problem Statement
 
@@ -128,7 +128,7 @@ Result: Accelerating productivity
 
 ## Vision Success Criteria
 
-Project Kaizen succeeds when:
+KaizenMCP succeeds when:
 
 1. **Developers forget AI wasn't always on the team** - It knows so much project context it feels like a tenured team member
 2. **New hires learn from AI** - Instead of bothering senior developers, they ask AI about project conventions
@@ -138,6 +138,6 @@ Project Kaizen succeeds when:
 
 ## Conclusion
 
-Project Kaizen represents a fundamental shift in how AI assistants participate in software development. By providing persistent memory and learning capabilities, we transform AI from a powerful but forgetful tool into an invaluable team member that grows more capable with every interaction.
+KaizenMCP represents a fundamental shift in how AI assistants participate in software development. By providing persistent memory and learning capabilities, we transform AI from a powerful but forgetful tool into an invaluable team member that grows more capable with every interaction.
 
 This is not about making AI smarter - it's about making it remember, learn, and apply knowledge like experienced developers do. The result is accelerated development, prevented errors, preserved knowledge, and a true AI collaborator that understands projects as deeply as the humans working on them.

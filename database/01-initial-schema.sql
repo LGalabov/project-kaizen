@@ -1,4 +1,4 @@
--- Project Kaizen - PostgreSQL Schema for MCP Knowledge Management
+-- KaizenMCP - PostgreSQL Schema for MCP Knowledge Management
 -- Optimized for multi-tenant scope hierarchy with full-text search
 
 CREATE EXTENSION IF NOT EXISTS "btree_gin";

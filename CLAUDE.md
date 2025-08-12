@@ -1,6 +1,6 @@
-# Project Kaizen - Claude Instructions
+# KaizenMCP - Claude Instructions
 
-Project Kaizen is an MCP server that elevates transient AI interactions into a persistent foundation of organizational knowledge.
+KaizenMCP is an MCP server that elevates transient AI interactions into a persistent foundation of organizational knowledge.
 
 ## Git Commit Messages
 

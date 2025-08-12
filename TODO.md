@@ -1,4 +1,4 @@
-# Project Kaizen - TODO
+# KaizenMCP - TODO
 
 ## MCP Tools — Missing Functionality
 

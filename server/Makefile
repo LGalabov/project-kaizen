@@ -2,7 +2,7 @@
 
 # Default target - show help
 help:
-	@echo "Project Kaizen MCP Server - Build Commands"
+	@echo "KaizenMCP Server - Build Commands"
 	@echo ""
 	@echo "  make install    - Install production dependencies"
 	@echo "  make dev        - Install all dependencies including dev tools"
@@ -27,7 +27,7 @@ lint:
 
 # Run static type checking
 type-check:
-	mypy src/project_kaizen --strict
+	mypy src/kaizen_mcp --strict
 
 # Run tests
 test:
@@ -45,4 +45,4 @@ clean:
 
 # Run MCP server with STDIO transport
 run:
-	python -m project_kaizen
+	python -m kaizen_mcp

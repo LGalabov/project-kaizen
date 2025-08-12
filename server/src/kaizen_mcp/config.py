@@ -1,14 +1,14 @@
-"""Configuration management for Project Kaizen MCP server."""
+"""Configuration management for KaizenMCP server."""
 
 import argparse
 import os
 from dataclasses import dataclass
 from typing import Literal
 
-from project_kaizen.utils import parse_transport
+from kaizen_mcp.utils import parse_transport
 
 # Default configuration values
-DEFAULT_DATABASE_URL = "postgresql://kz_user:kz_password@localhost:5453/kz_knowledge"
+DEFAULT_DATABASE_URL = "postgresql://kz_user:kz_pass@localhost:5452/kz_data"
 DEFAULT_POOL_MIN = 1
 DEFAULT_POOL_MAX = 2
 DEFAULT_TRANSPORT = "stdio"

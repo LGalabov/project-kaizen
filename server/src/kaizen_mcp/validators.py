@@ -1,5 +1,5 @@
 """
-Validation functions for Project Kaizen MCP Server.
+Validation functions for KaizenMCP Server.
 
 This module provides validation functions for all input parameters
 used in the MCP server.
@@ -7,7 +7,7 @@ used in the MCP server.
 
 import re
 
-from project_kaizen.utils import parse_canonical_scope_name
+from kaizen_mcp.utils import parse_canonical_scope_name
 
 # Validation constants - easy to modify limits and patterns
 MIN_NAME_LENGTH = 2

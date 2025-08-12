@@ -1,4 +1,4 @@
-# Project Kaizen
+# KaizenMCP
 
 > Transform AI assistants from forgetful tools into persistent, learning team members
 
@@ -6,16 +6,16 @@
 
 ## What It Does
 
-Project Kaizen is an MCP server that gives AI persistent memory across sessions. Instead of re-explaining your project setup, coding standards, and lessons learned every time, AI remembers everything and gets smarter with each interaction.
+KaizenMCP is an MCP server that gives AI persistent memory across sessions. Instead of re-explaining your project setup, coding standards, and lessons learned every time, AI remembers everything and gets smarter with each interaction.
 
-**Before Kaizen:**
+**Before KaizenMCP:**
 ```
 Day 1: "Here's our project setup, coding standards, and conventions..."
 Day 2: "Here's our project setup, coding standards, and conventions..."
 Day 3: AI makes the same mistake from last week
 ```
 
-**With Kaizen:**
+**With KaizenMCP:**
 ```
 Day 1: Explain once, AI stores everything
 Day 2: AI remembers, starts productive work immediately  

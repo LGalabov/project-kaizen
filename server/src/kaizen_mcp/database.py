@@ -1,12 +1,12 @@
-"""Database operations for Project Kaizen MCP Server."""
+"""Database operations for KaizenMCP Server."""
 
 import sys
 from typing import Any
 
 import asyncpg
 
-from project_kaizen.config import Config
-from project_kaizen.utils import parse_canonical_scope_name
+from kaizen_mcp.config import Config
+from kaizen_mcp.utils import parse_canonical_scope_name
 
 _pool: asyncpg.Pool | None = None
 

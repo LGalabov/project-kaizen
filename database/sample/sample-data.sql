@@ -1,4 +1,4 @@
--- Sample data for Project Kaizen MCP Knowledge System
+-- Sample data for KaizenMCP Knowledge System
 -- Domain: E-commerce Platform Development
 
 -- Create shopcraft namespace with default scope
