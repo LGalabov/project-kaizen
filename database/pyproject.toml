@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=75.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kaizen-mcp-database"
+version = "1.0.0"
+description = "KaizenMCP database migration tools"
+requires-python = ">=3.10"
+license = { text = "GPL" }
+authors = [
+    { name = "Lyubomir Galabov", email = "lvgalabov@gmail.com" },
+]
+keywords = ["mcp", "database", "migration", "yoyo"]
+
+dependencies = [
+    "yoyo-migrations>=9.0.0",
+    "psycopg2-binary>=2.9.0",
+]
+
+[tool.setuptools]
+py-modules = []

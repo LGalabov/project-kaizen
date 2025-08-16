@@ -31,11 +31,10 @@ async def postgres_container() -> AsyncGenerator[PostgresContainer, None]:
     """Start PostgreSQL container and load schema once."""
     with PostgresContainer("postgres:17-alpine") as container:
         conn = await asyncpg.connect(get_db_url(container))
-        db_dir = Path(__file__).parent.parent.parent / "database"
-        db_test_dir = db_dir / "tests"
-
-        await conn.execute((db_dir / "01-initial-schema.sql").read_text())
-        await conn.execute((db_test_dir / "01-test-helpers.sql").read_text())
+        db_dir = Path(__file__).parent.parent.parent / "database" / "sql"
+        
+        await conn.execute((db_dir / "migrations" / "001_initial_schema.sql").read_text())
+        await conn.execute((db_dir / "tests" / "001_test_helpers.sql").read_text())
         
         await conn.close()
         yield container

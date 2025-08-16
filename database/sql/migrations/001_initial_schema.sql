@@ -1,3 +1,6 @@
+-- KaizenMCP Initial Schema Migration
+-- depends: 
+
 -- KaizenMCP - PostgreSQL Schema for MCP Knowledge Management
 -- Optimized for multi-tenant scope hierarchy with full-text search
 

@@ -1,4 +1,5 @@
 -- Test helper functions for resetting database to clean state
+-- depends: 001_initial_schema
 -- This file is only loaded during test setup, not in production
 
 CREATE OR REPLACE FUNCTION reset_test_database() RETURNS void AS $$

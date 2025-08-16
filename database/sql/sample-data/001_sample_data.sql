@@ -1,4 +1,5 @@
 -- Sample data for KaizenMCP Knowledge System
+-- depends: 001_initial_schema
 -- Domain: E-commerce Platform Development
 
 -- Create shopcraft namespace with default scope
