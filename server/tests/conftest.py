@@ -29,7 +29,13 @@ def event_loop() -> Any:
 @pytest.fixture(scope="session")
 async def postgres_container() -> AsyncGenerator[PostgresContainer, None]:
     """Start PostgreSQL container and load schema once."""
-    with PostgresContainer("postgres:17-alpine") as container:
+    with PostgresContainer("postgres:17-alpine").with_kwargs(
+        tmpfs={
+            "/var/lib/postgresql/data": "rw",  # Main data directory (database files, WAL, temp tables, stats)
+            "/var/run/postgresql": "rw",       # Unix sockets and lock files
+            "/tmp": "rw"                       # System temporary files
+        }
+    ) as container:
         conn = await asyncpg.connect(get_db_url(container))
         db_dir = Path(__file__).parent.parent.parent / "database" / "sql"
         

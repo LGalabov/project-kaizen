@@ -16,6 +16,7 @@ ENV UV_PROJECT_ENVIRONMENT=/usr/local
 
 ENV MCP_TRANSPORT=http
 ENV MCP_HTTP_HOST=0.0.0.0
+ENV DATABASE_URL=postgresql://kz_user:kz_pass@kaizen-mcp-postgres:5432/kz_data
 
 EXPOSE 5453
 CMD ["uv", "run", "kaizen-mcp"]
