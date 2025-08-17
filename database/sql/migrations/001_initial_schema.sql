@@ -287,32 +287,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
--- Calculates complete ancestor chain including global:default
+-- Calculates complete ancestor chain following explicit parent relationships
 CREATE OR REPLACE FUNCTION calculate_scope_ancestors(scope_id BIGINT) RETURNS BIGINT[] AS $$
-DECLARE
-    max_depth INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO max_depth
-    FROM scopes s
-    WHERE s.namespace_id = (
-        SELECT namespace_id FROM scopes WHERE id = scope_id
-    );
-    
     RETURN (
         WITH RECURSIVE ancestor_tree AS (
-            SELECT scope_id as current_scope_id, 0 as level
+            SELECT scope_id as current_scope_id
             UNION ALL
-            SELECT sp.parent_scope_id as current_scope_id, at.level + 1
+            SELECT sp.parent_scope_id as current_scope_id
             FROM ancestor_tree at
             JOIN scope_parents sp ON at.current_scope_id = sp.child_scope_id
-            WHERE at.level < max_depth
-        ),
-        all_ancestors AS (
-            SELECT current_scope_id FROM ancestor_tree
-            UNION
-            SELECT get_global_default_scope_id()
         )
-        SELECT array_agg(current_scope_id) FROM all_ancestors
+        SELECT array_agg(DISTINCT current_scope_id) FROM ancestor_tree
     );
 END;
 $$ LANGUAGE plpgsql;
@@ -499,9 +485,26 @@ $$ LANGUAGE plpgsql;
 
 -- Creates default scope when namespace is created
 CREATE OR REPLACE FUNCTION create_default_scope_on_namespace() RETURNS TRIGGER AS $$
+DECLARE
+    new_default_scope_id BIGINT;
+    global_default_scope_id BIGINT;
 BEGIN
+    -- Create the default scope
     INSERT INTO scopes (namespace_id, name, description)
-    VALUES (NEW.id, 'default', NEW.description || ' - default scope');
+    VALUES (NEW.id, 'default', NEW.description || ' - default scope')
+    RETURNING id INTO new_default_scope_id;
+    
+    -- Only add global:default as parent if this is NOT the global namespace
+    IF NEW.name != 'global' THEN
+        -- Get the existing global:default scope ID
+        global_default_scope_id := get_global_default_scope_id();
+        
+        -- Add inheritance relationship
+        INSERT INTO scope_parents (child_scope_id, parent_scope_id)
+        VALUES (new_default_scope_id, global_default_scope_id);
+    END IF;
+    -- If this IS global namespace, no parent needed (it's the root)
+    
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -577,6 +580,36 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Prevents modification of default scope parents (they can only have global:default, set once)
+CREATE OR REPLACE FUNCTION validate_default_scope_parents() RETURNS TRIGGER AS $$
+DECLARE
+    child_scope_name TEXT;
+    existing_parent_count INTEGER;
+BEGIN
+    -- Check if child is a default scope
+    SELECT s.name INTO child_scope_name
+    FROM scopes s WHERE s.id = NEW.child_scope_id;
+    
+    IF child_scope_name = 'default' THEN
+        -- Count existing parents for this default scope
+        SELECT COUNT(*) INTO existing_parent_count
+        FROM scope_parents WHERE child_scope_id = NEW.child_scope_id;
+        
+        -- Default scopes can only have ONE parent, set once
+        IF existing_parent_count > 0 THEN
+            RAISE EXCEPTION 'Default scope parent already set and cannot be modified';
+        END IF;
+        
+        -- Default scopes can only have global:default as parent
+        IF NEW.parent_scope_id != get_global_default_scope_id() THEN
+            RAISE EXCEPTION 'Default scopes can only inherit from global:default';
+        END IF;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Refreshes materialized view when base data changes
 CREATE OR REPLACE FUNCTION refresh_active_knowledge_search() RETURNS TRIGGER AS $$
 BEGIN
@@ -611,6 +644,11 @@ CREATE TRIGGER trigger_prevent_circular_inheritance
     BEFORE INSERT OR UPDATE ON scope_parents
     FOR EACH ROW
     EXECUTE FUNCTION prevent_circular_inheritance();
+
+CREATE TRIGGER trigger_validate_default_scope_parents
+    BEFORE INSERT OR UPDATE ON scope_parents
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_default_scope_parents();
 
 CREATE TRIGGER trigger_enforce_default_parent
     AFTER INSERT ON scopes

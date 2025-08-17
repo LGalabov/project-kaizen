@@ -41,22 +41,73 @@ Always use canonical forms of technology names:
 
 ### Context Keywords Strategy
 
-**Use 6-12 relevant keywords** that developers might search for:
+**Use 5-7 high-impact keywords** that developers might search for:
 
 ```sql
--- Example: Authentication knowledge
+-- Example: Authentication knowledge  
 INSERT INTO knowledge (scope_id, content, context, task_size) VALUES
 (scope_id,
  'ShopCraft user authentication supports OAuth social login, two-factor authentication, password reset flows, and account verification. Use JWT with refresh tokens.',
- 'shopcraft authentication oauth social login two-factor password reset jwt refresh tokens verification',
+ 'authentication oauth social login jwt tokens',
  'M');
 ```
 
 **Keyword Selection Principles**:
-1. **Technology stack**: `oauth`, `jwt`, `authentication`
-2. **Feature names**: `social login`, `two-factor`, `password reset`
-3. **Domain concepts**: `user`, `verification`, `tokens`
-4. **Implementation details**: `refresh tokens`, `flows`
+1. **Primary terms** (2-3): Core technology + concept that developers search for
+2. **Alternative terms** (1-2): Synonyms or related technologies developers might use  
+3. **Action terms** (1-2): Implementation-focused terms for specific tasks
+4. **Target 2-3 word search patterns**: Map keywords to common AI agent queries
+
+### AI Knowledge Entry Self-Prompt
+
+When creating knowledge entries, use this systematic approach for keyword discovery:
+
+**Step 1: Task Context Analysis**
+"What specific implementation tasks would require this knowledge? List 3-4 concrete scenarios."
+
+**Step 2: AI Query Simulation**
+"When working on each task, what would an AI agent search for to find this knowledge?"
+- Task 1: [specific task] → Query: "[implementation focus]"
+- Task 2: [specific task] → Query: "[technical need]"
+- Task 3: [specific task] → Query: "[problem domain]"
+
+**Step 3: Keyword Extraction**
+"What terms appear across multiple queries? What would an AI agent actually type when it needs this information?"
+
+**Step 4: Implementation Verification** 
+"If an AI agent was implementing [main technology/pattern], would these keywords help it find this knowledge?"
+
+**Example:**
+```
+Knowledge: "Use pytest with asyncio for async testing"
+Tasks:
+- "Write tests for async MCP tools" → "async testing mcp"
+- "Configure test environment" → "pytest asyncio configuration"  
+- "Test database operations" → "async database testing"
+Keywords: `pytest asyncio async testing configuration`
+```
+
+### Relevance Score Optimization
+
+**Understanding the Math**: With KaizenMCP's configuration (context_weight=1.0, content_weight=0.4, threshold=0.4):
+
+- **Each context keyword match = 1.0 relevance points**
+- **Each content match = 0.4 relevance points**  
+- **Minimum 0.4 total needed to return results**
+
+**Guaranteed Hit Formula**:
+```
+2 keyword matches × 1.0 = 2.0 relevance → ✅ Results returned
+1 keyword match × 1.0 = 1.0 relevance → ✅ Results returned  
+0 keyword matches + content matches → ❌ Likely filtered out
+```
+
+**Example Optimization**:
+```sql
+-- Query: "python package"
+-- Keywords: 'python package uv pip installation'
+-- Match: python(1.0) + package(1.0) = 2.0 relevance ✅
+```
 
 ### Multi-Level Coverage
 
