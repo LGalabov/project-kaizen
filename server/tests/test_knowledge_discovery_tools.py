@@ -35,13 +35,15 @@ async def test_search_basic_single_query(mcp_client: Client[Any]) -> None:
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "search-test:default",
             "content": "This is documentation about REST API endpoints",
-            "context": "api documentation rest endpoints"
+            "context": "api documentation rest endpoints",
+            "optimized": True
         })
         
         # Search with a single query
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["api"],
-            "canonical_scope_name": "search-test:default"
+            "canonical_scope_name": "search-test:default",
+            "optimized": True
         })
         
         # Should find the knowledge and have the structured prompt
@@ -64,20 +66,23 @@ async def test_search_basic_multiple_queries(mcp_client: Client[Any]) -> None:
             "canonical_scope_name": "multi-search:default",
             "content": ("Database connection pooling configuration with postgresql read replicas "
                        "and connection limits for optimal performance"),
-            "context": "database postgresql connection pooling configuration read replicas performance optimization"
+            "context": "database postgresql connection pooling configuration read replicas performance optimization",
+            "optimized": True
         })
         
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "multi-search:default",
             "content": ("Authentication system using oauth social login with jwt tokens, "
                        "refresh tokens, and twofactor verification"),
-            "context": "authentication oauth social login jwt tokens twofactor verification security"
+            "context": "authentication oauth social login jwt tokens twofactor verification security",
+            "optimized": True
         })
         
         # Search with multiple queries
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["database postgresql", "authentication oauth"],
-            "canonical_scope_name": "multi-search:default"
+            "canonical_scope_name": "multi-search:default",
+            "optimized": True
         })
         
         # Should find both pieces of knowledge and have the structured prompt
@@ -94,7 +99,8 @@ async def test_search_empty_queries_validation(mcp_client: Client[Any]) -> None:
         with pytest.raises(ToolError) as exc_info:
             await client.call_tool("search_knowledge_base", {
                 "queries": [],
-                "canonical_scope_name": "global:default"
+                "canonical_scope_name": "global:default",
+                "optimized": True
             })
         
         assert "Query terms cannot be empty" in str(exc_info.value)
@@ -131,13 +137,15 @@ async def test_search_scope_inheritance_chain(mcp_client: Client[Any]) -> None:
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "hierarchy-test:parent",
             "content": "Parent scope contains important guidelines",
-            "context": "guidelines documentation parent scope"
+            "context": "guidelines documentation parent scope",
+            "optimized": True
         })
         
         # Search from child scope should find parent's knowledge
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["guidelines"],
-            "canonical_scope_name": "hierarchy-test:child"
+            "canonical_scope_name": "hierarchy-test:child",
+            "optimized": True
         })
         
         # Should find the knowledge from the parent scope and have the structured prompt
@@ -178,13 +186,15 @@ async def test_search_multiple_inheritance_levels(mcp_client: Client[Any]) -> No
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "deep-hierarchy:grandparent",
             "content": "Ancient wisdom from the grandparent scope",
-            "context": "legacy documentation grandparent scope"
+            "context": "legacy documentation grandparent scope",
+            "optimized": True
         })
         
         # Search from child scope should find grandparent's knowledge
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["legacy documentation"],
-            "canonical_scope_name": "deep-hierarchy:child"
+            "canonical_scope_name": "deep-hierarchy:child",
+            "optimized": True
         })
         
         # Should find the knowledge from grandparent scope and have the structured prompt
@@ -219,13 +229,15 @@ async def test_search_scope_isolation(mcp_client: Client[Any]) -> None:
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "isolation-test:sibling1",
             "content": "Secret information in sibling1",
-            "context": "private documentation isolated scope"
+            "context": "private documentation isolated scope",
+            "optimized": True
         })
         
         # Search from the second sibling should not find the first sibling's knowledge
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["private"],
-            "canonical_scope_name": "isolation-test:sibling2"
+            "canonical_scope_name": "isolation-test:sibling2",
+            "optimized": True
         })
         
         # Should not find any knowledge from sibling1 (scope isolation)
@@ -251,28 +263,32 @@ async def test_search_with_task_size_filter(mcp_client: Client[Any]) -> None:
             "canonical_scope_name": "task-size-test:default",
             "content": "Extra small task documentation",
             "context": "xs task guide minimal",
-            "task_size": "XS"
+            "task_size": "XS",
+            "optimized": True
         })
         
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "task-size-test:default",
             "content": "Medium task documentation",
             "context": "medium task guide standard", 
-            "task_size": "M"
+            "task_size": "M",
+            "optimized": True
         })
         
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "task-size-test:default",
             "content": "Large task documentation",
             "context": "large task guide complex",
-            "task_size": "L"
+            "task_size": "L",
+            "optimized": True
         })
         
         # Filter for Medium tasks and above (should include M, L, XL but not XS, S)
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["task guide"],
             "canonical_scope_name": "task-size-test:default",
-            "task_size": "M"
+            "task_size": "M",
+            "optimized": True
         })
         
         # Should find M and L tasks, but not XS
@@ -296,26 +312,30 @@ async def test_search_without_task_size_includes_all(mcp_client: Client[Any]) ->
             "canonical_scope_name": "inclusive-test:default",
             "content": "Small task knowledge entry",
             "context": "small task documentation guide",
-            "task_size": "S"
+            "task_size": "S",
+            "optimized": True
         })
         
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "inclusive-test:default",
             "content": "Large task knowledge entry",
             "context": "large task documentation guide",
-            "task_size": "L"
+            "task_size": "L",
+            "optimized": True
         })
         
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "inclusive-test:default",
             "content": "Unclassified knowledge entry",
-            "context": "general documentation guide"
+            "context": "general documentation guide",
+            "optimized": True
         })
         
         # Search without a task size filter (should return all entries)
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["documentation guide"],
-            "canonical_scope_name": "inclusive-test:default"
+            "canonical_scope_name": "inclusive-test:default",
+            "optimized": True
         })
         
         # Should find all three knowledge entries
@@ -336,7 +356,8 @@ async def test_search_invalid_task_size_validation(mcp_client: Client[Any]) -> N
             await client.call_tool("search_knowledge_base", {
                 "queries": ["test"],
                 "canonical_scope_name": "global:default",
-                "task_size": "INVALID"
+                "task_size": "INVALID",
+                "optimized": True
             })
         
         assert "Task size must be one of:" in str(exc_info.value)
@@ -354,7 +375,8 @@ async def test_search_no_results_empty_response(mcp_client: Client[Any]) -> None
         # Search for something that doesn't exist
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["nothing"],
-            "canonical_scope_name": "global:default"
+            "canonical_scope_name": "global:default",
+            "optimized": True
         })
         
         # Should return no results prompt
@@ -382,19 +404,21 @@ async def test_search_respects_max_results_config(mcp_client: Client[Any]) -> No
             await client.call_tool("write_knowledge", {
                 "canonical_scope_name": "limit-test:default",
                 "content": f"Configuration item number {i} for testing limits",
-                "context": f"configuration test item number{i}"
+                "context": f"configuration test item number{i}",
+                "optimized": True
             })
         
         # First, verify we have more than 2 results without limit
         result_without_limit = await client.call_tool("search_knowledge_base", {
             "queries": ["configuration test"],
-            "canonical_scope_name": "limit-test:default"
+            "canonical_scope_name": "limit-test:default",
+            "optimized": True
         })
         
         # Check we have results without limit and structured prompt
         assert result_without_limit.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
         lines_without_limit = result_without_limit.data.split('\n')
-        # Only count actual knowledge entries (lines with pattern "ID: content")
+        # Only count actual knowledge entries (lines with the pattern "ID: content")
         import re
         knowledge_lines_without_limit = [line for line in lines_without_limit if re.match(r'^\d+:', line.strip())]
         assert len(knowledge_lines_without_limit) > 2, (
@@ -410,13 +434,14 @@ async def test_search_respects_max_results_config(mcp_client: Client[Any]) -> No
         # Search should return at most 2 results
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["configuration test"],
-            "canonical_scope_name": "limit-test:default"
+            "canonical_scope_name": "limit-test:default",
+            "optimized": True
         })
         
         # Check we have results with limit and structured prompt
         assert result.data.startswith(KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS)
         lines_with_limit = result.data.split('\n')
-        # Only count actual knowledge entries (lines with pattern "ID: content")
+        # Only count actual knowledge entries (lines with the pattern "ID: content")
         knowledge_lines_with_limit = [line for line in lines_with_limit if re.match(r'^\d+:', line.strip())]
         assert len(knowledge_lines_with_limit) <= 2
         
@@ -438,7 +463,8 @@ async def test_search_nonexistent_scope(mcp_client: Client[Any]) -> None:
         with pytest.raises(ToolError) as exc_info:
             await client.call_tool("search_knowledge_base", {
                 "queries": ["test"],
-                "canonical_scope_name": "nonexistent:scope"
+                "canonical_scope_name": "nonexistent:scope",
+                "optimized": True
             })
         
         assert "does not exist" in str(exc_info.value)
@@ -461,8 +487,46 @@ async def test_search_malformed_scope_name(mcp_client: Client[Any]) -> None:
             with pytest.raises(ToolError) as exc_info:
                 await client.call_tool("search_knowledge_base", {
                     "queries": ["test"],
-                    "canonical_scope_name": malformed_name
+                    "canonical_scope_name": malformed_name,
+                    "optimized": True
                 })
             
             # Should get specific validation error
             assert expected_message in str(exc_info.value)
+
+
+# ============================================================================
+# 7. Optimization Parameter Validation Tests
+# ============================================================================
+
+async def test_search_knowledge_base_requires_optimization(mcp_client: Client[Any]) -> None:
+    """Validates that search_knowledge_base requires optimized=True parameter.
+    Tests that unoptimized queries are rejected with a proper error message.
+    Value: Ensures search optimization workflow is enforced."""
+    async with mcp_client as client:
+        result = await client.call_tool("search_knowledge_base", {
+            "queries": ["test query"],
+            "canonical_scope_name": "global:default"
+        })
+        
+        # Should return error string instead of search results
+        assert "Queries require optimization" in result.data
+        assert "optimize_search_queries" in result.data
+        assert "optimized=true" in result.data
+
+
+async def test_search_knowledge_base_with_optimization_succeeds(mcp_client: Client[Any]) -> None:
+    """Validates that search_knowledge_base works normally with optimized=True.
+    Tests that optimized queries are accepted and processed correctly.
+    Value: Ensures search optimization workflow allows proper searching."""
+    async with mcp_client as client:
+        result = await client.call_tool("search_knowledge_base", {
+            "queries": ["test query"],
+            "canonical_scope_name": "global:default",
+            "optimized": True
+        })
+        
+        # Should succeed normally (even if no results found)
+        assert isinstance(result.data, str)
+        # Should either find results or return no results prompt, not an error
+        assert not result.is_error

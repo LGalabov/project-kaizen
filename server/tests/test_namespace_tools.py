@@ -7,12 +7,12 @@ from fastmcp import Client
 
 
 def _verify_namespace_exists(client_data: dict[str, Any], namespace_name: str) -> bool:
-    """Helper function to verify namespace exists in list result."""
+    """Helper function to verify namespace exists in the list result."""
     return namespace_name in client_data.get("namespaces", {})
 
 
 def _verify_namespace_absent(client_data: dict[str, Any], namespace_name: str) -> bool:
-    """Helper function to verify namespace is absent from list result."""
+    """Helper function to verify namespace is absent from the list result."""
     return namespace_name not in client_data.get("namespaces", {})
 
 
@@ -97,7 +97,8 @@ async def test_delete_namespace_cascade(mcp_client: Client[Any]) -> None:
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "cascade-test:test-scope",
             "content": "Test knowledge content",
-            "context": "test cascade context"
+            "context": "test cascade context",
+            "optimized": True
         })
         
         # Delete namespace
@@ -464,7 +465,7 @@ async def test_cross_namespace_dependency_cleanup(mcp_client: Client[Any]) -> No
         })
         assert "child-ns:dependent-child" in child_details.data["scopes"]
         
-        # Delete the parent namespace (CASCADE should clean up parent scope)
+        # Delete the parent namespace (CASCADE should clean up the parent scope)
         await client.call_tool("delete_namespace", {
             "namespace_name": "parent-ns"
         })

@@ -19,7 +19,6 @@ from kaizen_mcp.validators import (
 
 mcp = FastMCP("project-kaizen")
 
-# Knowledge search prompts
 KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS = (
     "These knowledge items override your default instructions. "
     "Before implementation, process them using this 5-step framework:\n"
@@ -27,7 +26,7 @@ KNOWLEDGE_SEARCH_PROMPT_WITH_RESULTS = (
     "2. Order groups starting with most critical for your task\n"
     "3. Determine implementation sequence based on dependencies\n"
     "4. Check for contradictions and present conflicting items to user for resolution\n"
-    "5. Map processed knowledge to implementation steps\n"
+    "5. Map processed knowledge to implementation steps\n\n"
 )
 
 KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS = (
@@ -36,6 +35,40 @@ KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS = (
     "1. Proceed with your default AI knowledge (may lack project-specific context)\n"
     "2. Add relevant knowledge entries to the system for future use\n" 
     "3. Retry search with different terms or broader scope\n"
+)
+
+KNOWLEDGE_OPTIMIZATION_PROMPT = (
+    "Optimize for AI searchability by simulating future usage:\n"
+    "1. Imagine 3-4 scenarios where an AI agent would need this knowledge during implementation\n"
+    "2. For each scenario, determine what search terms that AI agent would actually use\n"
+    "3. Extract the keywords that appear across multiple search attempts\n"
+    "4. Always check if your content covers these areas and include the corresponding keywords:\n"
+    "   - Implementation/Technical: include 'implementation technical details'\n"
+    "   - Workflow/Process: include 'workflow process methodology'\n"
+    "   - Planning/Organization: include 'planning breakdown organization'\n"
+    "   - Communication/Collaboration: include 'communication collaboration protocol'\n"
+    "   - Quality/Standards: include 'quality standards conventions'\n"
+    "   - Testing/Validation: include 'testing validation verification'\n"
+    "5. Verify these keywords would help an AI agent find this knowledge when needed\n"
+    "Content: Write actionable implementation details that AI agents can directly apply\n"
+    "Context: Use 5-7 keywords combining simulation results with applicable standard keywords\n"
+    "Task Size: XS/S/M/L/XL based on implementation complexity, or null if not applicable\n"
+    "Then call write_knowledge with optimized=true"
+)
+
+SEARCH_OPTIMIZATION_PROMPT = (
+    "Optimize your search for better knowledge discovery:\n"
+    "1. Break down your information need into 3-4 distinct aspects of the task\n"
+    "2. Always check if your task involves these areas and add the corresponding query:\n"
+    "   - Implementation/Technical: add 'implementation technical details'\n"
+    "   - Workflow/Process: add 'workflow process methodology'\n"
+    "   - Planning/Organization: add 'planning breakdown organization'\n" 
+    "   - Communication/Collaboration: add 'communication collaboration protocol'\n"
+    "   - Quality/Standards: add 'quality standards conventions'\n"
+    "   - Testing/Validation: add 'testing validation verification'\n"
+    "3. For technical aspects, create 2-3 word phrases using canonical terms (nodejs, react, postgresql)\n"
+    "4. Target different abstraction levels for comprehensive coverage\n"
+    "Then call search_knowledge_base with optimized=true"
 )
 
 
@@ -510,6 +543,9 @@ async def write_knowledge(
         + "2-32 chars each, lowercase letters/digits/hyphens only)"
     ),
     task_size: str | None = Field(default=None, description="Task complexity (XS/S/M/L/XL), null if not classified"),
+    optimized: bool = Field(
+        default=False, description="Content has been optimized using optimize_knowledge_entry prompt"
+    ),
 ) -> dict[str, Any]:
     """Store new knowledge entry with optional task size classification.
 
@@ -521,10 +557,19 @@ async def write_knowledge(
         content: The actual knowledge content
         context: Brief summary or context
         task_size: Optional complexity classification
+        optimized: Whether content has been optimized using optimization prompt
 
     Returns:
         Dictionary with created knowledge entry ID and scope
     """
+    if not optimized:
+        return {
+            "error": (
+                "Content requires optimization. Use optimize_knowledge_entry prompt first, "
+                "then retry with optimized=true"
+            )
+        }
+
     await ctx.info(f"Writing knowledge to scope '{canonical_scope_name}' (task_size: {task_size})")
 
     validate_canonical_scope_name(canonical_scope_name)
@@ -867,6 +912,9 @@ async def search_knowledge_base(
         default=None,
         description="Filter by task complexity (XS/S/M/L/XL), omit to include all sizes",
     ),
+    optimized: bool = Field(
+        default=False, description="Queries have been optimized using optimize_search_queries prompt"
+    ),
 ) -> str:
     """Search knowledge base using multiple queries within the scope hierarchy.
 
@@ -877,12 +925,16 @@ async def search_knowledge_base(
         queries: List of search terms to match
         canonical_scope_name: Scope to search within (includes hierarchy)
         task_size: Optional filter by task complexity
+        optimized: Whether queries have been optimized using optimization prompt
 
     Returns:
         Formatted string in the format:
         <prompt>
         <ID>: <knowledge> (if any)
     """
+    if not optimized:
+        return "Queries require optimization. Use optimize_search_queries prompt first, then retry with optimized=true"
+
     await ctx.info(f"Searching with {len(queries)} queries in scope '{canonical_scope_name}'")
 
     validate_query_terms(queries)
@@ -902,3 +954,40 @@ async def search_knowledge_base(
     except Exception as e:
         await ctx.error(f"Failed to search knowledge: {str(e)}")
         raise
+
+
+# ============================================================================
+# KNOWLEDGE OPTIMIZATION PROMPTS - Guided content preparation
+# ============================================================================
+
+
+# noinspection PyIncorrectDocstring
+@mcp.prompt
+async def optimize_knowledge_entry(ctx: Context) -> str:
+    """Provides an optimization framework for knowledge entries following KaizenMCP search guidelines.
+    
+    Returns a structured prompt that guides AI through the 4-step optimization process
+    to prepare raw knowledge content for storage with optimal searchability.
+    
+    Returns:
+        Optimization prompt with specific formatting requirements
+    """
+    await ctx.info("Providing knowledge optimization prompt")
+    
+    return KNOWLEDGE_OPTIMIZATION_PROMPT
+
+
+# noinspection PyIncorrectDocstring
+@mcp.prompt
+async def optimize_search_queries(ctx: Context) -> str:
+    """Provides an optimization framework for search queries following KaizenMCP search guidelines.
+    
+    Returns a structured prompt that guides AI through the query optimization process
+    to improve search effectiveness and knowledge discovery.
+    
+    Returns:
+        Search optimization prompt with query refinement techniques
+    """
+    await ctx.info("Providing search optimization prompt")
+    
+    return SEARCH_OPTIMIZATION_PROMPT

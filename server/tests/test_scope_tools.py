@@ -168,7 +168,8 @@ async def test_delete_scope_cascade(mcp_client: Client[Any]) -> None:
             result = await client.call_tool("write_knowledge", {
                 "canonical_scope_name": "cascade-test:deletable",
                 "content": f"Test knowledge {i}",
-                "context": f"context test{i}"
+                "context": f"context test{i}",
+                "optimized": True
             })
             knowledge_ids.append(result.data["id"])
         
@@ -934,13 +935,15 @@ async def test_scope_with_knowledge_inheritance(mcp_client: Client[Any]) -> None
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "inherit-knowledge:parent",
             "content": "Parent's important knowledge about APIs",
-            "context": "api documentation scope"
+            "context": "api documentation scope",
+            "optimized": True
         })
         
         # Search from child scope should find parent's knowledge
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["api"],
-            "canonical_scope_name": "inherit-knowledge:child"
+            "canonical_scope_name": "inherit-knowledge:child",
+            "optimized": True
         })
         
         # Should find the knowledge from the parent scope and have the structured prompt
@@ -977,14 +980,16 @@ async def test_scope_rename_with_active_knowledge(mcp_client: Client[Any]) -> No
             result = await client.call_tool("write_knowledge", {
                 "canonical_scope_name": "rename-test:old-scope",
                 "content": entry["content"],
-                "context": entry["context"]
+                "context": entry["context"],
+                "optimized": True
             })
             created_knowledge_ids.append(result.data["id"])
         
         # Verify knowledge is searchable before rename
         pre_rename_result = await client.call_tool("search_knowledge_base", {
             "queries": ["database config"],
-            "canonical_scope_name": "rename-test:old-scope"
+            "canonical_scope_name": "rename-test:old-scope",
+            "optimized": True
         })
         assert pre_rename_result.data != KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS
         assert "Database configuration settings" in pre_rename_result.data
@@ -1000,7 +1005,8 @@ async def test_scope_rename_with_active_knowledge(mcp_client: Client[Any]) -> No
         # Verify knowledge is searchable after rename with the new scope name
         post_rename_result = await client.call_tool("search_knowledge_base", {
             "queries": ["database config"],
-            "canonical_scope_name": "rename-test:new-scope"
+            "canonical_scope_name": "rename-test:new-scope",
+            "optimized": True
         })
         assert post_rename_result.data != KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS
         assert "Database configuration settings" in post_rename_result.data
@@ -1008,7 +1014,8 @@ async def test_scope_rename_with_active_knowledge(mcp_client: Client[Any]) -> No
         # Verify all original knowledge entries are still accessible
         all_knowledge_result = await client.call_tool("search_knowledge_base", {
             "queries": ["config", "auth", "api"],
-            "canonical_scope_name": "rename-test:new-scope"
+            "canonical_scope_name": "rename-test:new-scope",
+            "optimized": True
         })
         assert all_knowledge_result.data != KNOWLEDGE_SEARCH_PROMPT_NO_RESULTS
         
@@ -1016,7 +1023,8 @@ async def test_scope_rename_with_active_knowledge(mcp_client: Client[Any]) -> No
         with pytest.raises(Exception) as exc_info:
             await client.call_tool("search_knowledge_base", {
                 "queries": ["database config"],
-                "canonical_scope_name": "rename-test:old-scope"
+                "canonical_scope_name": "rename-test:old-scope",
+                "optimized": True
             })
         # Should fail because the scope no longer exists
         assert "does not exist" in str(exc_info.value).lower()
@@ -1102,13 +1110,15 @@ async def test_scope_multiple_inheritance_paths(mcp_client: Client[Any]) -> None
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "diamond:top",
             "content": "Knowledge from top of diamond",
-            "context": "diamond test boundary"
+            "context": "diamond test boundary",
+            "optimized": True
         })
         
         # Search from the bottom should find it (through either path)
         search_result = await client.call_tool("search_knowledge_base", {
             "queries": ["diamond"],
-            "canonical_scope_name": "diamond:bottom"
+            "canonical_scope_name": "diamond:bottom",
+            "optimized": True
         })
         
         # Should find the knowledge from the top and have the structured prompt
@@ -1143,7 +1153,8 @@ async def test_scope_namespace_boundary(mcp_client: Client[Any]) -> None:
         await client.call_tool("write_knowledge", {
             "canonical_scope_name": "shared-ns:public-api",
             "content": "Shared API documentation",
-            "context": "public api boundary"
+            "context": "public api boundary",
+            "optimized": True
         })
         
         # Create consumer scope that inherits from shared
@@ -1156,7 +1167,8 @@ async def test_scope_namespace_boundary(mcp_client: Client[Any]) -> None:
         # Search from consumer should find shared knowledge
         result = await client.call_tool("search_knowledge_base", {
             "queries": ["api documentation"],
-            "canonical_scope_name": "consumer-ns:api-consumer"
+            "canonical_scope_name": "consumer-ns:api-consumer",
+            "optimized": True
         })
         
         # Should find the shared knowledge and have the structured prompt

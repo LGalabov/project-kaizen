@@ -23,7 +23,8 @@ async def test_write_knowledge_basic_creation(mcp_client: Client[Any]) -> None:
         result = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "knowledge-test:default",
             "content": "This is test knowledge content for basic creation",
-            "context": "test knowledge content creation basic"
+            "context": "test knowledge content creation basic",
+            "optimized": True
         })
         
         # Verify knowledge was created successfully
@@ -35,7 +36,8 @@ async def test_write_knowledge_basic_creation(mcp_client: Client[Any]) -> None:
         # Verify knowledge can be found via search
         search_result = await client.call_tool("search_knowledge_base", {
             "queries": ["test knowledge"],
-            "canonical_scope_name": "knowledge-test:default"
+            "canonical_scope_name": "knowledge-test:default",
+            "optimized": True
         })
         
         assert "This is test knowledge content" in search_result.data
@@ -59,7 +61,8 @@ async def test_write_knowledge_with_task_size_classification(mcp_client: Client[
                 "canonical_scope_name": "task-size-test:default",
                 "content": f"Knowledge entry with {size} task size complexity",
                 "context": f"task-size {size.lower()}-complexity classification test",
-                "task_size": size
+                "task_size": size,
+                "optimized": True
             })
             
             created_ids.append(result.data["id"])
@@ -69,7 +72,8 @@ async def test_write_knowledge_with_task_size_classification(mcp_client: Client[
         search_result = await client.call_tool("search_knowledge_base", {
             "queries": ["complexity classification"],
             "canonical_scope_name": "task-size-test:default",
-            "task_size": "M"
+            "task_size": "M",
+            "optimized": True
         })
         
         # Should find M, L, XL entries but not XS, S
@@ -89,7 +93,8 @@ async def test_write_knowledge_validation_errors(mcp_client: Client[Any]) -> Non
             await client.call_tool("write_knowledge", {
                 "canonical_scope_name": "invalid-scope-format",
                 "content": "Test content",
-                "context": "test context"
+                "context": "test context",
+                "optimized": True
             })
         assert "Canonical scope name must be in format 'namespace:scope'" in str(exc_info.value)
         
@@ -97,7 +102,8 @@ async def test_write_knowledge_validation_errors(mcp_client: Client[Any]) -> Non
             await client.call_tool("write_knowledge", {
                 "canonical_scope_name": "global:default",
                 "content": "",
-                "context": "test context"
+                "context": "test context",
+                "optimized": True
             })
         assert "Knowledge content cannot be empty" in str(exc_info.value)
         
@@ -106,7 +112,8 @@ async def test_write_knowledge_validation_errors(mcp_client: Client[Any]) -> Non
             await client.call_tool("write_knowledge", {
                 "canonical_scope_name": "global:default",
                 "content": "Test content",
-                "context": "Invalid Context With Uppercase"
+                "context": "Invalid Context With Uppercase",
+                "optimized": True
             })
         assert "Knowledge context must be 1-20 space-separated keywords" in str(exc_info.value)
         
@@ -116,7 +123,8 @@ async def test_write_knowledge_validation_errors(mcp_client: Client[Any]) -> Non
                 "canonical_scope_name": "global:default",
                 "content": "Test content",
                 "context": "test context",
-                "task_size": "INVALID"
+                "task_size": "INVALID",
+                "optimized": True
             })
         assert "Task size must be one of:" in str(exc_info.value)
 
@@ -139,7 +147,8 @@ async def test_update_knowledge_content_success(mcp_client: Client[Any]) -> None
             "canonical_scope_name": "content-update-test:default",
             "content": "Original content that will be updated",
             "context": "original content update test",
-            "task_size": "M"
+            "task_size": "M",
+            "optimized": True
         })
         
         knowledge_id = create_result.data["id"]
@@ -154,7 +163,8 @@ async def test_update_knowledge_content_success(mcp_client: Client[Any]) -> None
         # Verify the content was updated, but context and task_size preserved
         search_result = await client.call_tool("search_knowledge_base", {
             "queries": ["original content"],
-            "canonical_scope_name": "content-update-test:default"
+            "canonical_scope_name": "content-update-test:default",
+            "optimized": True
         })
         
         # Should find updated content, not original
@@ -164,7 +174,8 @@ async def test_update_knowledge_content_success(mcp_client: Client[Any]) -> None
         # Verify context-based search still works (context wasn't changed)
         context_search = await client.call_tool("search_knowledge_base", {
             "queries": ["update test"],
-            "canonical_scope_name": "content-update-test:default"
+            "canonical_scope_name": "content-update-test:default",
+            "optimized": True
         })
         assert "Updated content with new information" in context_search.data
 
@@ -196,7 +207,8 @@ async def test_update_knowledge_context_success(mcp_client: Client[Any]) -> None
         create_result = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "context-update-test:default",
             "content": "Knowledge content for context testing",
-            "context": "original context keywords test"
+            "context": "original context keywords test",
+            "optimized": True
         })
         
         knowledge_id = create_result.data["id"]
@@ -211,14 +223,16 @@ async def test_update_knowledge_context_success(mcp_client: Client[Any]) -> None
         # Verify old context no longer finds the knowledge
         old_context_search = await client.call_tool("search_knowledge_base", {
             "queries": ["original context"],
-            "canonical_scope_name": "context-update-test:default"
+            "canonical_scope_name": "context-update-test:default",
+            "optimized": True
         })
         assert "Knowledge content for context testing" not in old_context_search.data
         
         # Verify new context finds the knowledge
         new_context_search = await client.call_tool("search_knowledge_base", {
             "queries": ["updated context"],
-            "canonical_scope_name": "context-update-test:default"
+            "canonical_scope_name": "context-update-test:default",
+            "optimized": True
         })
         assert "Knowledge content for context testing" in new_context_search.data
 
@@ -231,7 +245,8 @@ async def test_update_knowledge_context_validation(mcp_client: Client[Any]) -> N
         create_result = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "global:default",
             "content": "Test knowledge for context validation",
-            "context": "test knowledge validation"
+            "context": "test knowledge validation",
+            "optimized": True
         })
         
         knowledge_id = create_result.data["id"]
@@ -284,7 +299,8 @@ async def test_move_knowledge_to_scope_same_namespace(mcp_client: Client[Any]) -
         create_result = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "move-test:default",
             "content": "Knowledge to be moved between scopes",
-            "context": "knowledge movement scope test"
+            "context": "knowledge movement scope test",
+            "optimized": True
         })
         
         knowledge_id = create_result.data["id"]
@@ -300,14 +316,16 @@ async def test_move_knowledge_to_scope_same_namespace(mcp_client: Client[Any]) -
         # Verify knowledge is now in the target scope
         target_search = await client.call_tool("search_knowledge_base", {
             "queries": ["knowledge movement"],
-            "canonical_scope_name": "move-test:target"
+            "canonical_scope_name": "move-test:target",
+            "optimized": True
         })
         assert "Knowledge to be moved between scopes" in target_search.data
         
         # Verify knowledge is no longer directly in the default scope (not inherited)
         default_search = await client.call_tool("search_knowledge_base", {
             "queries": ["knowledge movement"],
-            "canonical_scope_name": "move-test:default"
+            "canonical_scope_name": "move-test:default",
+            "optimized": True
         })
         assert "Knowledge to be moved between scopes" not in default_search.data
 
@@ -330,7 +348,8 @@ async def test_move_knowledge_cross_namespace(mcp_client: Client[Any]) -> None:
         create_result = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "source-ns:default",
             "content": "Knowledge for cross-namespace movement test",
-            "context": "cross-namespace movement test knowledge"
+            "context": "cross-namespace movement test knowledge",
+            "optimized": True
         })
         
         knowledge_id = create_result.data["id"]
@@ -346,14 +365,16 @@ async def test_move_knowledge_cross_namespace(mcp_client: Client[Any]) -> None:
         # Verify knowledge is in the target namespace
         target_search = await client.call_tool("search_knowledge_base", {
             "queries": ["cross-namespace movement"],
-            "canonical_scope_name": "target-ns:default"
+            "canonical_scope_name": "target-ns:default",
+            "optimized": True
         })
         assert "Knowledge for cross-namespace movement test" in target_search.data
         
         # Verify knowledge is no longer in the source namespace
         source_search = await client.call_tool("search_knowledge_base", {
             "queries": ["cross-namespace movement"],
-            "canonical_scope_name": "source-ns:default"
+            "canonical_scope_name": "source-ns:default",
+            "optimized": True
         })
         assert "Knowledge for cross-namespace movement test" not in source_search.data
 
@@ -366,7 +387,8 @@ async def test_move_knowledge_invalid_target_scope(mcp_client: Client[Any]) -> N
         create_result = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "global:default",
             "content": "Knowledge for invalid move test",
-            "context": "invalid move test knowledge"
+            "context": "invalid move test knowledge",
+            "optimized": True
         })
         
         knowledge_id = create_result.data["id"]
@@ -397,7 +419,8 @@ async def test_update_knowledge_task_size_success(mcp_client: Client[Any]) -> No
         create_result = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "task-size-update-test:default",
             "content": "Knowledge for task size update testing",
-            "context": "task-size update testing knowledge"
+            "context": "task-size update testing knowledge",
+            "optimized": True
         })
         
         knowledge_id = create_result.data["id"]
@@ -414,7 +437,8 @@ async def test_update_knowledge_task_size_success(mcp_client: Client[Any]) -> No
         xl_search = await client.call_tool("search_knowledge_base", {
             "queries": ["task-size update"],
             "canonical_scope_name": "task-size-update-test:default",
-            "task_size": "XL"
+            "task_size": "XL",
+            "optimized": True
         })
         assert "Knowledge for task size update testing" in xl_search.data
         
@@ -430,7 +454,8 @@ async def test_update_knowledge_task_size_success(mcp_client: Client[Any]) -> No
         xl_search2 = await client.call_tool("search_knowledge_base", {
             "queries": ["task-size update"],
             "canonical_scope_name": "task-size-update-test:default",
-            "task_size": "XL"
+            "task_size": "XL",
+            "optimized": True
         })
         assert "Knowledge for task size update testing" not in xl_search2.data
         
@@ -438,7 +463,8 @@ async def test_update_knowledge_task_size_success(mcp_client: Client[Any]) -> No
         s_search = await client.call_tool("search_knowledge_base", {
             "queries": ["task-size update"],
             "canonical_scope_name": "task-size-update-test:default",
-            "task_size": "S"
+            "task_size": "S",
+            "optimized": True
         })
         assert "Knowledge for task size update testing" in s_search.data
 
@@ -451,7 +477,8 @@ async def test_update_knowledge_task_size_validation(mcp_client: Client[Any]) ->
         create_result = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "global:default",
             "content": "Knowledge for task size validation",
-            "context": "task-size validation test"
+            "context": "task-size validation test",
+            "optimized": True
         })
         
         knowledge_id = create_result.data["id"]
@@ -492,13 +519,15 @@ async def test_resolve_knowledge_conflict_basic(mcp_client: Client[Any]) -> None
         result1 = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "conflict-test:default",
             "content": "Original implementation uses REST API",
-            "context": "api implementation rest original"
+            "context": "api implementation rest original",
+            "optimized": True
         })
         
         result2 = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "conflict-test:default",
             "content": "Updated implementation uses GraphQL API",
-            "context": "api implementation graphql updated"
+            "context": "api implementation graphql updated",
+            "optimized": True
         })
         
         active_id = result2.data["id"]
@@ -526,18 +555,21 @@ async def test_resolve_knowledge_conflict_search_exclusion(mcp_client: Client[An
         result1 = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "search-conflict-test:default",
             "content": "Deprecated authentication method using sessions",
-            "context": "authentication deprecated sessions method"
+            "context": "authentication deprecated sessions method",
+            "optimized": True
         })
         
         result2 = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "search-conflict-test:default", 
             "content": "Current authentication method using JWT tokens",
-            "context": "authentication current jwt tokens method"
+            "context": "authentication current jwt tokens method",
+            "optimized": True
         })
         
         search_before = await client.call_tool("search_knowledge_base", {
             "queries": ["authentication method"],
-            "canonical_scope_name": "search-conflict-test:default"
+            "canonical_scope_name": "search-conflict-test:default",
+            "optimized": True
         })
         assert "Deprecated authentication method" in search_before.data
         assert "Current authentication method" in search_before.data
@@ -550,7 +582,8 @@ async def test_resolve_knowledge_conflict_search_exclusion(mcp_client: Client[An
         # Verify only active knowledge appears in search
         search_after = await client.call_tool("search_knowledge_base", {
             "queries": ["authentication method"],
-            "canonical_scope_name": "search-conflict-test:default"
+            "canonical_scope_name": "search-conflict-test:default",
+            "optimized": True
         })
         assert "Current authentication method" in search_after.data
         assert "Deprecated authentication method" not in search_after.data
@@ -564,7 +597,8 @@ async def test_resolve_knowledge_conflict_validation(mcp_client: Client[Any]) ->
         create_result = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "global:default",
             "content": "Knowledge for conflict validation",
-            "context": "conflict validation test"
+            "context": "conflict validation test",
+            "optimized": True
         })
         
         valid_id = create_result.data["id"]
@@ -619,7 +653,8 @@ async def test_delete_knowledge_success(mcp_client: Client[Any]) -> None:
         create_result = await client.call_tool("write_knowledge", {
             "canonical_scope_name": "delete-test:default",
             "content": "Knowledge entry to be deleted from system",
-            "context": "knowledge deletion test entry"
+            "context": "knowledge deletion test entry",
+            "optimized": True
         })
         
         knowledge_id = create_result.data["id"]
@@ -627,7 +662,8 @@ async def test_delete_knowledge_success(mcp_client: Client[Any]) -> None:
         # Verify knowledge exists before deletion
         search_before = await client.call_tool("search_knowledge_base", {
             "queries": ["knowledge deletion"],
-            "canonical_scope_name": "delete-test:default"
+            "canonical_scope_name": "delete-test:default",
+            "optimized": True
         })
         assert "Knowledge entry to be deleted" in search_before.data
         
@@ -641,7 +677,8 @@ async def test_delete_knowledge_success(mcp_client: Client[Any]) -> None:
         # Verify knowledge no longer appears in search
         search_after = await client.call_tool("search_knowledge_base", {
             "queries": ["knowledge deletion"],
-            "canonical_scope_name": "delete-test:default"
+            "canonical_scope_name": "delete-test:default",
+            "optimized": True
         })
         assert "Knowledge entry to be deleted" not in search_after.data
 
@@ -657,3 +694,43 @@ async def test_delete_knowledge_nonexistent_id(mcp_client: Client[Any]) -> None:
             })
         
         assert "Knowledge entry 99999 not found" in str(exc_info.value)
+
+
+# ============================================================================
+# 7. Optimization Parameter Validation Tests
+# ============================================================================
+
+async def test_write_knowledge_requires_optimization(mcp_client: Client[Any]) -> None:
+    """Validates that write_knowledge requires optimized=True parameter.
+    Tests that unoptimized knowledge are rejected with a proper error message.
+    Value: Ensures optimization workflow is enforced."""
+    async with mcp_client as client:
+        result = await client.call_tool("write_knowledge", {
+            "canonical_scope_name": "global:default",
+            "content": "Test knowledge without optimization",
+            "context": "test knowledge unoptimized"
+        })
+        
+        # Should return error dict instead of successful creation
+        assert "error" in result.data
+        assert "Content requires optimization" in result.data["error"]
+        assert "optimize_knowledge_entry" in result.data["error"]
+        assert "optimized=true" in result.data["error"]
+
+
+async def test_write_knowledge_with_optimization_succeeds(mcp_client: Client[Any]) -> None:
+    """Validates that write_knowledge works normally with optimized=True.
+    Tests that optimized knowledge are accepted and stored correctly.
+    Value: Ensures optimization workflow allows proper storage."""
+    async with mcp_client as client:
+        result = await client.call_tool("write_knowledge", {
+            "canonical_scope_name": "global:default",
+            "content": "Test knowledge with optimization",
+            "context": "test knowledge optimized",
+            "optimized": True
+        })
+        
+        # Should succeed normally
+        assert "id" in result.data
+        assert isinstance(result.data["id"], int)
+        assert result.data["id"] > 0
